@@ -157,9 +157,10 @@ def overwrite_default_python_interpreter(isaaclab_settings: str) -> str:
 
     # replace the default python interpreter in the Isaac Lab settings file with the path to the
     # python interpreter in the Isaac Lab directory
+    python_exe_escaped = python_exe.replace("\\", "\\\\")
     isaaclab_settings = re.sub(
         r"\"python.defaultInterpreterPath\": \".*?\"",
-        f'"python.defaultInterpreterPath": "{python_exe}"',
+        f'"python.defaultInterpreterPath": "{python_exe_escaped}"',
         isaaclab_settings,
         flags=re.DOTALL,
     )
