@@ -28,7 +28,7 @@ from . import mdp
 ##
 # Pre-defined configs
 ##
-from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
+from source.quad_climbing.terrains.config import SLOPE_TERRAIN_CFG  # isort: skip
 
 
 ##
@@ -43,27 +43,27 @@ class MySceneCfg(InteractiveSceneCfg):
     # ground terrain
     terrain = TerrainImporterCfg( #configures the terrian importer which is a class that handles terrain meshes and imports them into the simulator. A terrian mesh comprises of sub terrain which can be stairs, slopes... arranged in a grid with num_cols nd num_ros. The trerrain origins are the positions of the subterrain where the robot should be spawned.
         prim_path="/World/ground", #where the primitive should be located
-        terrain_type="generator",
-        terrain_generator=ROUGH_TERRAINS_CFG,
-        max_init_terrain_level=5,
-        collision_group=-1, #means collide with everything
-        physics_material=sim_utils.RigidBodyMaterialCfg(
-            friction_combine_mode="multiply",
-            restitution_combine_mode="multiply",
+        terrain_type="generator", #means that the terrain will be procedurally generated rather than loaded from a file
+        terrain_generator=SLOPE_TERRAIN_CFG, #this is a generator config object used to generate the terrain. Params include the tpes of terrain and properties of them
+        max_init_terrain_level=5, #max initialhow arwe difficulty of the terrain
+        collision_group=-1, #means that the terrain will collide with everything
+        physics_material=sim_utils.RigidBodyMaterialCfg( #defines the physical properties of the terrain.
+            friction_combine_mode="multiply", #how the fric coeffs are cominded whn obj is on both surfaces
+            restitution_combine_mode="multiply", #determines how the bouniciness (restitution) is the prodct of two objs restitution values
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
-        visual_material=sim_utils.MdlFileCfg(
+        visual_material=sim_utils.MdlFileCfg( #config for the visual appearance of the terrain such as its textures and shaders
             mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
             project_uvw=True,
             texture_scale=(0.25, 0.25),
         ),
-        debug_vis=False,
+        debug_vis=False, #if set to true it shos wireframs and collision shapes
     )
     # robots
     robot: ArticulationCfg = MISSING
     # sensors
-    height_scanner = RayCasterCfg(
+    """ height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         attach_yaw_only=True,
@@ -72,6 +72,7 @@ class MySceneCfg(InteractiveSceneCfg):
         mesh_prim_paths=["/World/ground"],
     )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
+  """
     # lights
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
@@ -91,15 +92,15 @@ class MySceneCfg(InteractiveSceneCfg):
 class CommandsCfg:
     """Command specifications for the MDP."""
 
-    base_velocity = mdp.UniformVelocityCommandCfg(
-        asset_name="robot",
-        resampling_time_range=(10.0, 10.0),
-        rel_standing_envs=0.02,
-        rel_heading_envs=1.0,
-        heading_command=True,
-        heading_control_stiffness=0.5,
+    base_velocity = mdp.UniformVelocityCommandCfg( #the config for giving commands in the mdp
+        asset_name="robot", #the asset we're commanding
+        resampling_time_range=(10.0, 10.0), #min and max time between resampling a new command. Here we make it so that its always 10s
+        rel_standing_envs=0.02, #percent of envs that stand still
+        rel_heading_envs=1.0, #percent that receive a heading
+        heading_command=True, #if true the robot receives a heading
+        heading_control_stiffness=0.5, # stiffness at which the robot keeps its heading
         debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+        ranges=mdp.UniformVelocityCommandCfg.Ranges( #velo ranges
             lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
     )
@@ -109,7 +110,7 @@ class CommandsCfg:
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    joint_pos = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True)
+    joint_pos = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True) #
 
 
 @configclass
@@ -121,23 +122,27 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         # observation terms (order preserved)
+        """
         base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
         projected_gravity = ObsTerm(
             func=mdp.projected_gravity,
             noise=Unoise(n_min=-0.05, n_max=0.05),
         )
-        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
-        joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
-        joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
-        actions = ObsTerm(func=mdp.last_action)
         height_scan = ObsTerm(
             func=mdp.height_scan,
             params={"sensor_cfg": SceneEntityCfg("height_scanner")},
             noise=Unoise(n_min=-0.1, n_max=0.1),
             clip=(-1.0, 1.0),
-        )
+        )"""
 
+        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
+        joint_pos = ObsTerm(func=mdp.joint_pos, noise=Unoise(n_min=-0.01, n_max=0.01))
+        joint_vel = ObsTerm(func=mdp.joint_vel, noise=Unoise(n_min=-1.5, n_max=1.5))
+        joint_torque = ObsTerm(func=mdp.joint_effort, noise=Unoise(n_min=-0.25, n_max=0.25))
+        orientation = ObsTerm(func=mdp.imu_orientation, noise=Unoise(n_min=-0.01, n_max=0.01))
+        actions = ObsTerm(func=mdp.last_action)
+      
         def __post_init__(self):
             self.enable_corruption = True
             self.concatenate_terms = True
@@ -282,7 +287,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the locomotion velocity-tracking environment."""
 
     # Scene settings
-    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
+    scene: MySceneCfg = MySceneCfg(num_envs=100, env_spacing=2.5)
     # Basic settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()

@@ -10,3 +10,5 @@ These environments are based on the `legged_gym` environments provided by Rudin 
 Reference:
     https://github.com/leggedrobotics/legged_gym
 """
+
+from .velocity_env_cfg import LocomotionVelocityRoughEnvCfg

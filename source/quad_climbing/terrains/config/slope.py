@@ -16,11 +16,11 @@ SLOPE_TERRAIN_CFG = TerrainGeneratorCfg(
     num_cols=20, 
     horizontal_scale=0.1,
     vertical_scale=0.005,
-    slope_threshold=0.75,
+    slope_threshold=0.20, #a slope need to be steeper than 0.75 radians in order to be considered a slop
     use_cache=False,
     sub_terrains={
         "hf_pyramid_slope": terrain_gen.HfPyramidSlopedTerrainCfg(
-            proportion=0.1, slope_range=(0.0, 0.785), platform_width=2.0, border_width=0.25
+            proportion=1.0, slope_range=(0.0, 0.785), platform_width=2.0, border_width=0.25
         )
     }
 )
