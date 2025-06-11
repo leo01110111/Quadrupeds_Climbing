@@ -5,7 +5,7 @@
 
 from isaaclab.utils import configclass
 
-from ... import LocomotionVelocityRoughEnvCfg
+from .. import LocomotionSlopeEnvCfg
 
 ##
 # Pre-defined configsdp 
@@ -14,15 +14,15 @@ from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG  # isort: skip
 
 
 @configclass
-class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
+class UnitreeGo2SlopeEnvCfg(LocomotionSlopeEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
 
         self.scene.robot = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-        self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/base"
+        #self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/base"
         # scale down the terrains because the robot is small
-       # self.scene.terrain.terrain_generator.sub_terrains["hf_pyramid_slope"].grid_height_range = (0.025, 0.1)
+        self.scene.terrain.terrain_generator.sub_terrains["hf_pyramid_slope"].grid_height_range = (0.025, 0.1)
 
         # reduce action scale
         self.actions.joint_pos.scale = 0.25
@@ -59,13 +59,13 @@ class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
 
 @configclass
-class UnitreeGo2RoughEnvCfg_PLAY(UnitreeGo2RoughEnvCfg):
+class UnitreeGo2SlopeEnvCfg_PLAY(UnitreeGo2SlopeEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
 
         # make a smaller scene for play
-        self.scene.num_envs = 50
+        self.scene.num_envs = 5
         self.scene.env_spacing = 2.5
         # spawn the robot randomly in the grid (instead of their terrain levels)
         self.scene.terrain.max_init_terrain_level = None

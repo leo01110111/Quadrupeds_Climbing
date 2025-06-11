@@ -63,6 +63,7 @@ class MySceneCfg(InteractiveSceneCfg):
     # robots
     robot: ArticulationCfg = MISSING
     # sensors
+    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
     """ height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
@@ -140,7 +141,7 @@ class ObservationsCfg:
         joint_pos = ObsTerm(func=mdp.joint_pos, noise=Unoise(n_min=-0.01, n_max=0.01))
         joint_vel = ObsTerm(func=mdp.joint_vel, noise=Unoise(n_min=-1.5, n_max=1.5))
         joint_torque = ObsTerm(func=mdp.joint_effort, noise=Unoise(n_min=-0.25, n_max=0.25))
-        orientation = ObsTerm(func=mdp.imu_orientation, noise=Unoise(n_min=-0.01, n_max=0.01))
+        projected_gravity = ObsTerm(func=mdp.projected_gravity, noise=Unoise(n_min=-0.05, n_max=0.05),)
         actions = ObsTerm(func=mdp.last_action)
       
         def __post_init__(self):
@@ -283,7 +284,7 @@ class CurriculumCfg:
 
 
 @configclass
-class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
+class LocomotionSlopeEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the locomotion velocity-tracking environment."""
 
     # Scene settings
@@ -308,18 +309,22 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = self.decimation
         self.sim.physics_material = self.scene.terrain.physics_material
         self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**15
-        # update sensor update periods
-        # we tick all the sensors based on the smallest update period (physics update period)
-        if self.scene.height_scanner is not None:
-            self.scene.height_scanner.update_period = self.decimation * self.sim.dt
-        if self.scene.contact_forces is not None:
-            self.scene.contact_forces.update_period = self.sim.dt
-
-        # check if terrain levels curriculum is enabled - if so, enable curriculum for terrain generator
-        # this generates terrains with increasing difficulty and is useful for training
+        
         if getattr(self.curriculum, "terrain_levels", None) is not None:
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = True
         else:
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = False
+
+        # update sensor update periods
+        # we tick all the sensors based on the smallest update period (physics update period)
+        if self.scene.contact_forces is not None:
+            self.scene.contact_forces.update_period = self.sim.dt
+    """if self.scene.height_scanner is not None:
+            self.scene.height_scanner.update_period = self.decimation * self.sim.dt
+       """
+
+        # check if terrain levels curriculum is enabled - if so, enable curriculum for terrain generator
+        # this generates terrains with increasing difficulty and is useful for training
+

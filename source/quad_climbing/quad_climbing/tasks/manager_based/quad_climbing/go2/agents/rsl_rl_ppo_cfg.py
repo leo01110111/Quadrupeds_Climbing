@@ -9,11 +9,11 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 
 @configclass
-class AnymalCRoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class UnitreeGo2SlopePPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 1500
     save_interval = 50
-    experiment_name = "anymal_c_rough"
+    experiment_name = "unitree_go2_slope"
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
@@ -25,7 +25,7 @@ class AnymalCRoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
-        entropy_coef=0.005,
+        entropy_coef=0.01,
         num_learning_epochs=5,
         num_mini_batches=4,
         learning_rate=1.0e-3,
@@ -35,14 +35,3 @@ class AnymalCRoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
-
-
-@configclass
-class AnymalCFlatPPORunnerCfg(AnymalCRoughPPORunnerCfg):
-    def __post_init__(self):
-        super().__post_init__()
-
-        self.max_iterations = 300
-        self.experiment_name = "anymal_c_flat"
-        self.policy.actor_hidden_dims = [128, 128, 128]
-        self.policy.critic_hidden_dims = [128, 128, 128]
