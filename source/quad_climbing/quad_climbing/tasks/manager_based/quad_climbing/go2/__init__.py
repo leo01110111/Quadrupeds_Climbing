@@ -27,7 +27,7 @@ gym.register(
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.Slope_env_cfg:UnitreeGo2SlopeEnvCfg_PLAY",
+        "env_cfg_entry_point": f"{__name__}.slope_env_cfg:UnitreeGo2SlopeEnvCfg_PLAY",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:UnitreeGo2SlopePPORunnerCfg",
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_slope_ppo_cfg.yaml",
     },
