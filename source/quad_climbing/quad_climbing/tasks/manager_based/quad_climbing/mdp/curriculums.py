@@ -127,6 +127,7 @@ def terrain_levels_vel(
     
     hill_heights = torch.tensor([0.1766, 0.3532, 0.5299, 0.7065, 0.8831, 1.0597, 1.2364, 1.4130, 1.5896,
         1.7663], device=terrain.device)
+    
     #do this if i change row count or slope range
     #hill_heights = pyramid_max_height(env, cfg=terrain.cfg.terrain_generator, importer=terrain)
     #print("Hill_Heights: ", hill_heights)

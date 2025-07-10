@@ -114,20 +114,11 @@ Quadrupeds_Climbing/
 
 **Files containing hardcoded values:**
 1. **`events.py`** - `reset_state_curriculum` function:
-   ```python
-   # These height values are hardcoded for the default configuration
-   hill_heights = torch.tensor([0.1766, 0.3532, 0.5299, 0.7065, 0.8831, 
-                               1.0597, 1.2364, 1.4130, 1.5896, 1.7663])
-   ```
 
-2. **`curriculums.py`** - Curriculum progression functions:
-   ```python
-   # Height calculations based on specific terrain parameters
-   max_height = slope * terrain_cfg.size[0] / 2 / terrain_cfg.vertical_scale
-   ```
+2. **`curriculums.py`** - 'terrain_levels_vel' aka curriculum progression function:
 
 **To modify terrain parameters:**
-1. Calculate new maximum heights using: `max_height = tan(max_slope) * (terrain_size/2 - platform_width/2)` or use the `pyramid_max_height` function to print out the new heights based on your terrain configuration
+1. Calculate new maximum heights using the `pyramid_max_height` function in curriculums.py to print out the new heights based on your terrain configuration
 2. Generate new height arrays for each curriculum level
 3. Update the hardcoded values in both `events.py` and `curriculums.py`
 4. Ensure spawn heights in `events.py` match the terrain heights from curriculum
