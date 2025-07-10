@@ -113,37 +113,16 @@ Quadrupeds_Climbing/
 - Platform width (currently 2.0m)
 
 **Files containing hardcoded values:**
-1. **`events.py`** - `reset_state_curriculum` function:
+1. **`events.py`** - `reset_state_curriculum` function
 
-2. **`curriculums.py`** - 'terrain_levels_vel' aka curriculum progression function:
+2. **`curriculums.py`** - 'terrain_levels_vel' aka curriculum progression function
 
 **To modify terrain parameters:**
 1. Calculate new maximum heights using the `pyramid_max_height` function in curriculums.py to print out the new heights based on your terrain configuration
 2. Generate new height arrays for each curriculum level
 3. Update the hardcoded values in both `events.py` and `curriculums.py`
-4. Ensure spawn heights in `events.py` match the terrain heights from curriculum
+4. Ensure spawn heights in `events.py` is the negative of the hill heights because the top of the hill is the origin
 
-**Example calculation for custom parameters:**
-```python
-import math
-import numpy as np
-
-# Your custom parameters
-max_slope_degrees = 30  # instead of 45
-num_levels = 5         # instead of 10
-terrain_size = 10      # instead of 8
-platform_width = 1.5  # instead of 2.0
-
-# Calculate max height
-max_slope_rad = math.radians(max_slope_degrees)
-max_height = math.tan(max_slope_rad) * (terrain_size/2 - platform_width/2)
-
-# Generate height levels
-height_levels = np.linspace(0, max_height, num_levels)
-print(f"New height levels: {height_levels}")
-```
-
-This limitation will be addressed in future versions with dynamic height calculation.
 
 ### Adding New Features
 
@@ -348,7 +327,7 @@ If you use this project in your research, please cite:
   title={Quadruped Climbing with Curriculum Learning in Isaac Lab},
   author={Leo Wang},
   year={2025},
-  howpublished={\url{https://github.com/yourusername/Quadrupeds_Climbing}}
+  link={\url{https://github.com/leo01110111/Quadrupeds_Climbing}}
 }
 ```
 
