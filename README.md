@@ -100,6 +100,59 @@ Quadrupeds_Climbing/
 4. **Reset Events** (`events.py`):
    - `reset_state_curriculum`: Spawns robots at appropriate heights
    - Handles robot placement based on difficulty level
+   - **Note**: Contains hardcoded height values that must be recalculated if terrain parameters change
+
+### Important: Hardcoded Values
+
+⚠️ **Critical Configuration Note**: The current implementation contains hardcoded height values that are specific to the default terrain configuration. If you modify any of the following parameters, you **must** recalculate and update the hardcoded values:
+
+**Parameters that affect height calculations:**
+- Slope range (currently 0° to 45°)
+- Number of curriculum levels (currently 10)
+- Terrain size (currently 8m × 8m)
+- Platform width (currently 2.0m)
+
+**Files containing hardcoded values:**
+1. **`events.py`** - `reset_state_curriculum` function:
+   ```python
+   # These height values are hardcoded for the default configuration
+   hill_heights = torch.tensor([0.1766, 0.3532, 0.5299, 0.7065, 0.8831, 
+                               1.0597, 1.2364, 1.4130, 1.5896, 1.7663])
+   ```
+
+2. **`curriculums.py`** - Curriculum progression functions:
+   ```python
+   # Height calculations based on specific terrain parameters
+   max_height = slope * terrain_cfg.size[0] / 2 / terrain_cfg.vertical_scale
+   ```
+
+**To modify terrain parameters:**
+1. Calculate new maximum heights using: `max_height = tan(max_slope) * (terrain_size/2 - platform_width/2)` or use the `pyramid_max_height` function to print out the new heights based on your terrain configuration
+2. Generate new height arrays for each curriculum level
+3. Update the hardcoded values in both `events.py` and `curriculums.py`
+4. Ensure spawn heights in `events.py` match the terrain heights from curriculum
+
+**Example calculation for custom parameters:**
+```python
+import math
+import numpy as np
+
+# Your custom parameters
+max_slope_degrees = 30  # instead of 45
+num_levels = 5         # instead of 10
+terrain_size = 10      # instead of 8
+platform_width = 1.5  # instead of 2.0
+
+# Calculate max height
+max_slope_rad = math.radians(max_slope_degrees)
+max_height = math.tan(max_slope_rad) * (terrain_size/2 - platform_width/2)
+
+# Generate height levels
+height_levels = np.linspace(0, max_height, num_levels)
+print(f"New height levels: {height_levels}")
+```
+
+This limitation will be addressed in future versions with dynamic height calculation.
 
 ### Adding New Features
 
@@ -147,6 +200,11 @@ class RewardsCfg:
    - Reduce learning rate in `rsl_rl_ppo_cfg.py`
    - Increase number of environments for better sample diversity
    - Check reward scaling and clipping
+
+5. **Terrain Configuration Issues**:
+   - If you modify terrain parameters (slope, levels, size), you must recalculate hardcoded height values
+   - Check that spawn heights in `events.py` match terrain heights from curriculum
+   - Verify that robots don't spawn underground or too high above terrain
 
 ### Performance Tips
 
