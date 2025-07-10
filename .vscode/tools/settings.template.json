@@ -72,7 +72,7 @@
     //     in the status bar. For example, the virtual environment python interpreter
     "python.defaultInterpreterPath": "",
     // ROS distribution
-    "ros.distro": "noetic",
+    "ros.distro": "jazzy",
     // Language specific settings
     "[python]": {
         "editor.tabSize": 4

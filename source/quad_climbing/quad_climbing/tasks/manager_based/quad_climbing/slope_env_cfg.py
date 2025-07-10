@@ -7,7 +7,7 @@ import math
 from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObject, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.managers import EventTermCfg as EventTerm
@@ -24,12 +24,13 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from . import mdp
+import isaacsim.core.utils.prims as prim_utils
+
 
 ##
 # Pre-defined configs
 ##
-from source.quad_climbing.terrains.config import SLOPE_TERRAIN_CFG  # isort: skip
-
+from .terrains.config.slope import SLOPE_TERRAIN_CFG
 
 ##
 # Scene definition
@@ -45,7 +46,7 @@ class MySceneCfg(InteractiveSceneCfg):
         prim_path="/World/ground", #where the primitive should be located
         terrain_type="generator", #means that the terrain will be procedurally generated rather than loaded from a file
         terrain_generator=SLOPE_TERRAIN_CFG, #this is a generator config object used to generate the terrain. Params include the tpes of terrain and properties of them
-        max_init_terrain_level=5, #max initialhow arwe difficulty of the terrain
+        max_init_terrain_level=5, #max initial how arwe difficulty of the terrain
         collision_group=-1, #means that the terrain will collide with everything
         physics_material=sim_utils.RigidBodyMaterialCfg( #defines the physical properties of the terrain.
             friction_combine_mode="multiply", #how the fric coeffs are cominded whn obj is on both surfaces
@@ -60,20 +61,12 @@ class MySceneCfg(InteractiveSceneCfg):
         ),
         debug_vis=False, #if set to true it shos wireframs and collision shapes
     )
+
     # robots
     robot: ArticulationCfg = MISSING
     # sensors
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
-    """ height_scanner = RayCasterCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base",
-        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-        attach_yaw_only=True,
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
-        debug_vis=False,
-        mesh_prim_paths=["/World/ground"],
-    )
-    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
-  """
+
     # lights
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
@@ -83,7 +76,6 @@ class MySceneCfg(InteractiveSceneCfg):
         ),
     )
 
-
 ##
 # MDP settings
 ##
@@ -91,18 +83,18 @@ class MySceneCfg(InteractiveSceneCfg):
 
 @configclass
 class CommandsCfg:
-    """Command specifications for the MDP."""
+    #Command specifications for the MDP.
 
     base_velocity = mdp.UniformVelocityCommandCfg( #the config for giving commands in the mdp
         asset_name="robot", #the asset we're commanding
         resampling_time_range=(10.0, 10.0), #min and max time between resampling a new command. Here we make it so that its always 10s
-        rel_standing_envs=0.02, #percent of envs that stand still
+        rel_standing_envs=0, #percent of envs that stand still
         rel_heading_envs=1.0, #percent that receive a heading
         heading_command=True, #if true the robot receives a heading
-        heading_control_stiffness=0.5, # stiffness at which the robot keeps its heading
+        heading_control_stiffness=1, # stiffness at which the robot keeps its heading
         debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges( #velo ranges
-            lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+        ranges=mdp.UniformVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame
+            lin_vel_x=(0.5, 0.5), lin_vel_y=(0, 0), ang_vel_z=(1, 1), heading=(math.pi/4, math.pi/4)
         ),
     )
 
@@ -123,19 +115,6 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         # observation terms (order preserved)
-        """
-        base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
-        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
-        projected_gravity = ObsTerm(
-            func=mdp.projected_gravity,
-            noise=Unoise(n_min=-0.05, n_max=0.05),
-        )
-        height_scan = ObsTerm(
-            func=mdp.height_scan,
-            params={"sensor_cfg": SceneEntityCfg("height_scanner")},
-            noise=Unoise(n_min=-0.1, n_max=0.1),
-            clip=(-1.0, 1.0),
-        )"""
 
         velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
         joint_pos = ObsTerm(func=mdp.joint_pos, noise=Unoise(n_min=-0.01, n_max=0.01))
@@ -191,17 +170,17 @@ class EventCfg:
     )
 
     reset_base = EventTerm(
-        func=mdp.reset_root_state_uniform,
+        func=mdp.reset_state_curriculum,
         mode="reset",
         params={
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "pose_range": {"x": (-3.3,-3.3), "y": (-3.3, -3.3), "z":(0,0), "yaw": (math.pi/4, math.pi/4)}, # prev at -0.65
             "velocity_range": {
-                "x": (-0.5, 0.5),
-                "y": (-0.5, 0.5),
-                "z": (-0.5, 0.5),
-                "roll": (-0.5, 0.5),
-                "pitch": (-0.5, 0.5),
-                "yaw": (-0.5, 0.5),
+                "x": (0, 0),
+                "y": (0, 0),
+                "z": (0, 0),
+                "roll": (0, 0),
+                "pitch": (0, 0),
+                "yaw": (0, 0),
             },
         },
     )
@@ -229,15 +208,13 @@ class RewardsCfg:
     """Reward terms for the MDP."""
 
     # -- task
-    """ track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=1.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+    track_lin_vel_xy_exp = RewTerm(
+        func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
-    )"""
-    track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=1.0, params={"command_name": "goal_state", "std": math.sqrt(0.25)}
     )
+    
     # -- penalties
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
@@ -258,9 +235,15 @@ class RewardsCfg:
         weight=-1.0,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*THIGH"), "threshold": 1.0},
     )
+
+    undesired_body_contact = RewTerm(
+        func=mdp.undesired_contacts,
+        weight=-1.0,
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
+    )
     # -- optional penalties
-    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0)
-    dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.0)
+    #flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0)
+    #dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.0)
 
 
 @configclass
@@ -291,7 +274,7 @@ class LocomotionSlopeEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the locomotion velocity-tracking environment."""
 
     # Scene settings
-    scene: MySceneCfg = MySceneCfg(num_envs=100, env_spacing=2.5)
+    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
     # Basic settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
@@ -306,7 +289,7 @@ class LocomotionSlopeEnvCfg(ManagerBasedRLEnvCfg):
         """Post initialization."""
         # general settings
         self.decimation = 4
-        self.episode_length_s = 20.0
+        self.episode_length_s = 40.0
         # simulation settings
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation

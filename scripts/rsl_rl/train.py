@@ -91,7 +91,9 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
-import quad_climbing.tasks
+from quad_climbing import tasks 
+
+print(sys.path)
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
