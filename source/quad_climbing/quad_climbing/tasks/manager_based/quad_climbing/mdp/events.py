@@ -22,6 +22,7 @@ def reset_state_curriculum(
     env_ids: torch.Tensor,
     pose_range: dict[str, tuple[float, float]],
     velocity_range: dict[str, tuple[float, float]],
+    spawn_at_base: bool,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ):
     """Resets the robot to the state"""
@@ -34,14 +35,18 @@ def reset_state_curriculum(
     range_list = [pose_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z", "roll", "pitch", "yaw"]]
     ranges = torch.tensor(range_list, device=asset.device)
     rand_samples = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (len(env_ids), 6), device=asset.device)
+    #print("env_ids: ", env_ids)
+    #print("id_env origin z: ", env.scene.env_origins[env_ids, 2])
+    #print("rand samples: ", rand_samples[:, 2])
     
-    hill_heights = torch.tensor([0.1766, 0.3532, 0.5299, 0.7065, 0.8831, 1.0597, 1.2364, 1.4130, 1.5896,
-        1.7663], device=asset.device)
-    terrain: TerrainImporter = env.scene.terrain
-    z = -1 * hill_heights[terrain.terrain_levels[env_ids]]
-    rand_samples[:,2] = z
-    print("Z: ", z)
+    if spawn_at_base:
+        origin_z_height = env.scene.env_origins[env_ids, 2]
+        z_offset = -origin_z_height-0.2 #shape: env_ids x 1
+        rand_samples[:, 2] = rand_samples[:, 2] + z_offset #shape: env_ids x 1  + env_ids x 1
+
     positions = root_states[:, 0:3] + env.scene.env_origins[env_ids] + rand_samples[:, 0:3]
+    #print(f"root_states: {root_states[:,0:3]}\nenv_origins: {env.scene.env_origins[env_ids]}")
+    #print(f"positions: {positions[:,0:3]}") #see if the root states and env origins fuck things up
     orientations_delta = math_utils.quat_from_euler_xyz(rand_samples[:, 3], rand_samples[:, 4], rand_samples[:, 5])
     orientations = math_utils.quat_mul(root_states[:, 3:7], orientations_delta)
     # velocities

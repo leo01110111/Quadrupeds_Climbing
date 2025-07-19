@@ -93,8 +93,8 @@ class CommandsCfg:
         heading_command=True, #if true the robot receives a heading
         heading_control_stiffness=1, # stiffness at which the robot keeps its heading
         debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame
-            lin_vel_x=(0.5, 0.5), lin_vel_y=(0, 0), ang_vel_z=(1, 1), heading=(math.pi/4, math.pi/4)
+        ranges=mdp.UniformVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
+            lin_vel_x=(0.5, 0.5), lin_vel_y=(0, 0), ang_vel_z=(-1, 1), heading=(math.pi/4, math.pi/4)
         ),
     )
 
@@ -182,6 +182,7 @@ class EventCfg:
                 "pitch": (0, 0),
                 "yaw": (0, 0),
             },
+            "spawn_at_base": True
         },
     )
 
@@ -209,15 +210,13 @@ class RewardsCfg:
 
     # -- task
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=1.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     
     # -- penalties
-    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
-    ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
     dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
@@ -236,11 +235,11 @@ class RewardsCfg:
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*THIGH"), "threshold": 1.0},
     )
 
-    undesired_body_contact = RewTerm(
+    """undesired_body_contact = RewTerm(
         func=mdp.undesired_contacts,
         weight=-1.0,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
-    )
+    )"""
     # -- optional penalties
     #flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0)
     #dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.0)
@@ -289,7 +288,7 @@ class LocomotionSlopeEnvCfg(ManagerBasedRLEnvCfg):
         """Post initialization."""
         # general settings
         self.decimation = 4
-        self.episode_length_s = 40.0
+        self.episode_length_s = 30.0
         # simulation settings
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation

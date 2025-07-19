@@ -95,7 +95,7 @@ def pyramid_max_height(env : ManagerBasedRLEnv, cfg: TerrainGeneratorCfg, import
     #debug
     #print(f"levels, {level.shape}: {level.cpu().numpy()}")
     #print(f"slope, {slope.shape}: {slope}")
-    #print(f"height_max, {height_max.shape}: {height_max}")
+    print(f"height_max, {height_max.shape}: {height_max}")
     #print(f"z_pf shape: ", z_pf.shape)
     #print(f"z_pf: ", z_pf)
     #print(f"xx, {xx.shape}: {xx}")
@@ -122,29 +122,23 @@ def terrain_levels_vel(
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
     terrain: TerrainImporter = env.scene.terrain
-    # compute the height the robot climbed
-    robot_height = torch.norm(asset.data.root_pos_w[env_ids, 2], dim=0)
-    
-    hill_heights = torch.tensor([0.1766, 0.3532, 0.5299, 0.7065, 0.8831, 1.0597, 1.2364, 1.4130, 1.5896,
-        1.7663], device=terrain.device)
-    
-    #do this if i change row count or slope range
-    #hill_heights = pyramid_max_height(env, cfg=terrain.cfg.terrain_generator, importer=terrain)
-    #print("Hill_Heights: ", hill_heights)
+    # compute the heights the robots climbed
+    robot_height = asset.data.root_pos_w[env_ids, 2]
 
-    max_height = hill_heights[terrain.terrain_levels[env_ids]]
+    max_height = env.scene.env_origins[env_ids, 2]
+
     # robots that walked far enough progress to harder terrains
-    move_up = robot_height > max_height / 1.5 * torch.ones_like(robot_height)
+    move_up = robot_height > max_height * 100 #0.8
     # robots that walked less than half of their required distance go to simpler terrains
-    move_down = robot_height < max_height / 2.0 * torch.ones_like(robot_height)
+    move_down = robot_height < max_height * 0.5 
     move_down *= ~move_up
 
     #debug
-    """print("height of robots: ", robot_height)
-    print("height of robots: ", hill_heights)
-    print("max_heights of robots: ", max_height)
-    print("move up: ", move_up)
-    print("move_down: ", move_down)"""
+    """
+    print("Leveling Debug: bool format: move down, move up")
+    for i in range(len(env_ids)):
+        print(f"robot_z {robot_height[i]} vs max_height {max_height[i]} = {move_down[i]}, {move_up[i]}")
+        """
 
     # update terrain levels
     terrain.update_env_origins(env_ids, move_up, move_down)
