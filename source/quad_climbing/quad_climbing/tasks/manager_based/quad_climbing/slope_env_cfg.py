@@ -291,7 +291,7 @@ class LocomotionSlopeEnvCfg(ManagerBasedRLEnvCfg):
         self.episode_length_s = 30.0
         # simulation settings
         self.sim.dt = 0.005
-        self.sim.render_interval = self.decimation
+        self.sim.render_interval = self.decimation #4 time steps for every rendered frame
         self.sim.physics_material = self.scene.terrain.physics_material
         self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**15
         
