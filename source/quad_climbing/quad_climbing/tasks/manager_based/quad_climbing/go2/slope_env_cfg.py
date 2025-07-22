@@ -35,11 +35,11 @@ class UnitreeGo2SlopeEnvCfg(LocomotionSlopeEnvCfg):
         self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
 
         # rewards
-        self.rewards.feet_air_time.params["sensor_cfg"].body_names = ".*_foot"
-        self.rewards.feet_air_time.weight = 0.01
-        self.rewards.undesired_contacts = None
-        self.rewards.dof_torques_l2.weight = -0.0002
-        self.rewards.dof_acc_l2.weight = -2.5e-7
+        #self.rewards.feet_air_time.params["sensor_cfg"].body_names = ".*_foot"
+        #self.rewards.feet_air_time.weight = 0.01
+        #self.rewards.undesired_contacts = None
+        #self.rewards.dof_torques_l2.weight = -0.0002
+        #self.rewards.dof_acc_l2.weight = -2.5e-7
 
         # terminations
         self.terminations.base_contact.params["sensor_cfg"].body_names = "base"

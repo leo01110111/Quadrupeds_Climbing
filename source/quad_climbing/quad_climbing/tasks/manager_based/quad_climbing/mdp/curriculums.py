@@ -128,7 +128,7 @@ def terrain_levels_vel(
     max_height = env.scene.env_origins[env_ids, 2]
 
     # robots that walked far enough progress to harder terrains
-    move_up = robot_height > max_height * 100 #0.8
+    move_up = robot_height > max_height * 0.8
     # robots that walked less than half of their required distance go to simpler terrains
     move_down = robot_height < max_height * 0.5 
     move_down *= ~move_up

@@ -94,7 +94,7 @@ class CommandsCfg:
         heading_control_stiffness=1, # stiffness at which the robot keeps its heading
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
-            lin_vel_x=(0.5, 0.5), lin_vel_y=(0, 0), ang_vel_z=(-1, 1), heading=(math.pi/4, math.pi/4)
+            lin_vel_x=(1, 1.5), lin_vel_y=(0, 0), ang_vel_z=(-1, 1), heading=(math.pi/4, math.pi/4)
         ),
     )
 
@@ -210,17 +210,17 @@ class RewardsCfg:
 
     # -- task
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=1.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     
     # -- penalties
-    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
-    feet_air_time = RewTerm(
+    #dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
+    #dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
+    #action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+    """feet_air_time = RewTerm(
         func=mdp.feet_air_time,
         weight=0.125,
         params={
@@ -228,12 +228,12 @@ class RewardsCfg:
             "command_name": "base_velocity",
             "threshold": 0.5,
         },
-    )
-    undesired_contacts = RewTerm(
+    )"""
+    """undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
         weight=-1.0,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*THIGH"), "threshold": 1.0},
-    )
+    )"""
 
     """undesired_body_contact = RewTerm(
         func=mdp.undesired_contacts,
@@ -253,6 +253,9 @@ class TerminationsCfg:
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
+    )
+    at_top = DoneTerm(
+        func=mdp.robot_at_top,
     )
 
 

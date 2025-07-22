@@ -12,6 +12,7 @@ the termination introduced by the function.
 from __future__ import annotations
 
 import torch
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab.assets import RigidObject
@@ -19,6 +20,16 @@ from isaaclab.managers import SceneEntityCfg
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
+
+def robot_at_top(
+    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    asset : RigidObject = env.scene[asset_cfg.name]
+    robot_height = asset.data.root_pos_w[:, 2]
+    #print("robot_height: ", robot_height)
+    hill_height = env.scene.env_origins[:, 2]
+    #print("hill height:", hill_height)
+    return robot_height >= hill_height
 
 
 def terrain_out_of_bounds(
