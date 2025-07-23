@@ -8,9 +8,7 @@ This project implements a reinforcement learning environment for training quadru
 
 - **Curriculum Learning**: Progressive difficulty scaling from flat terrain to steep slopes
 - **Pyramid Terrain**: Custom pyramid-shaped hills with configurable slopes and platform sizes
-- **Goal-based Rewards**: Robots are rewarded for reaching terrain centers (hilltops)
-- **Multiple Terrains**: Support for various terrain types including slopes and pyramids
-- **Robust Training**: Optimized PPO configuration for stable quadruped locomotion learning
+- **Specialized Rewards**: Optimized rewards for quadrupedal climbing
 
 **Keywords:** quadruped, climbing, reinforcement learning, curriculum learning, isaac lab, locomotion
 
@@ -20,7 +18,7 @@ This project implements a reinforcement learning environment for training quadru
 
 - Install Isaac Lab by following the [installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html).
   I recommend using the conda installation as it simplifies calling Python scripts from the terminal.
-- NVIDIA GPU with CUDA support (tested with RTX 3000 series)
+- NVIDIA GPU with CUDA support
 - Python 3.10+
 
 ### Setup
@@ -102,28 +100,6 @@ Quadrupeds_Climbing/
    - Handles robot placement based on difficulty level
    - **Note**: Contains hardcoded height values that must be recalculated if terrain parameters change
 
-### Important: Hardcoded Values
-
-⚠️ **Critical Configuration Note**: The current implementation contains hardcoded height values that are specific to the default terrain configuration. If you modify any of the following parameters, you **must** recalculate and update the hardcoded values:
-
-**Parameters that affect height calculations:**
-- Slope range (currently 0° to 45°)
-- Number of curriculum levels (currently 10)
-- Terrain size (currently 8m × 8m)
-- Platform width (currently 2.0m)
-
-**Files containing hardcoded values:**
-1. **`events.py`** - `reset_state_curriculum` function
-
-2. **`curriculums.py`** - 'terrain_levels_vel' aka curriculum progression function
-
-**To modify terrain parameters:**
-1. Calculate new maximum heights using the `pyramid_max_height` function in curriculums.py to print out the new heights based on your terrain configuration
-2. Generate new height arrays for each curriculum level
-3. Update the hardcoded values in both `events.py` and `curriculums.py`
-4. Ensure spawn heights in `events.py` is the negative of the hill heights because the top of the hill is the origin
-
-
 ### Adding New Features
 
 To add custom reward functions:
@@ -140,54 +116,6 @@ def my_custom_reward(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
 class RewardsCfg:
     my_reward = RewTerm(func=mdp.my_custom_reward, weight=1.0)
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **GPU Memory Issues**:
-   ```bash
-   # Reduce number of environments
-   python scripts/rsl_rl/train.py --task Isaac-Slope-Unitree-Go2-v0 --num_envs 512
-   ```
-
-2. **CUDA Errors**:
-   ```bash
-   # Check GPU status
-   nvidia-smi
-   
-   # Restart if needed
-   sudo nvidia-smi --gpu-reset
-   ```
-
-3. **Import Errors**:
-   ```bash
-   # Reinstall package
-   pip install -e source/quad_climbing
-   ```
-
-4. **Training Instability**:
-   - Reduce learning rate in `rsl_rl_ppo_cfg.py`
-   - Increase number of environments for better sample diversity
-   - Check reward scaling and clipping
-
-5. **Terrain Configuration Issues**:
-   - If you modify terrain parameters (slope, levels, size), you must recalculate hardcoded height values
-   - Check that spawn heights in `events.py` match terrain heights from curriculum
-   - Verify that robots don't spawn underground or too high above terrain
-
-### Performance Tips
-
-- Use 2048+ environments for stable training
-- Monitor GPU memory usage with `nvidia-smi`
-- Save checkpoints frequently (`save_interval=100`)
-- Use tensorboard for training visualization:
-  ```bash
-  tensorboard --logdir logs/rsl_rl/
-  ```
-
-## Usage
-
 ### Training
 
 Train a quadruped robot to climb hills using PPO:
@@ -195,12 +123,6 @@ Train a quadruped robot to climb hills using PPO:
 ```bash
 # Basic training with 2048 environments
 python scripts/rsl_rl/train.py --task Isaac-Slope-Unitree-Go2-v0 --num_envs 2048
-
-# Training with fewer environments (for limited GPU memory)
-python scripts/rsl_rl/train.py --task Isaac-Slope-Unitree-Go2-v0 --num_envs 512
-
-# Training with custom parameters
-python scripts/rsl_rl/train.py --task Isaac-Slope-Unitree-Go2-v0 --num_envs 1024 --max_iterations 5000
 ```
 
 ### Evaluation
@@ -209,11 +131,7 @@ Evaluate a trained model:
 
 ```bash
 # Play with a trained model
-python scripts/rsl_rl/play.py --task Isaac-Slope-Play-Unitree-Go2-v0 --num_envs 16 --checkpoint /path/to/model.pt
-
-# Example with specific checkpoint
-python scripts/rsl_rl/play.py --task Isaac-Slope-Play-Unitree-Go2-v0 --num_envs 5 --checkpoint logs/rsl_rl/unitree_go2_slope/2025-07-10_14-24-44/model_1000.pt
-```
+python scripts/rsl_rl/play.py --task Isaac-Slope-Unitree-Go2-Play-v0 --num_envs 16 --checkpoint /path/to/model.pt
 
 ### Testing Environment
 
@@ -227,24 +145,18 @@ python scripts/zero_agent.py --task Isaac-Slope-Unitree-Go2-v0
 python scripts/random_agent.py --task Isaac-Slope-Unitree-Go2-v0
 ```
 
-## Environment Details
-
 ### Terrain Configuration
 
-The environment features pyramid-shaped hills with configurable parameters:
+The environment features pyramid-shaped hills with configurable parameters. The defaults are:
 
-- **Slope Range**: 0° to 45° (configurable)
+- **Slope Range**: 0° to 45°
 - **Platform Width**: 2.0m at hilltop
 - **Terrain Size**: 8m × 8m per environment
 - **Curriculum Levels**: 10 difficulty levels
 
 ### Reward Structure
 
-The robot is rewarded for:
-- **Distance Improvement**: Moving closer to the hill center (goal)
-- **Stability**: Maintaining upright orientation
-- **Energy Efficiency**: Minimizing joint torques and accelerations
-- **Foot Contact**: Proper ground contact patterns
+
 
 ### Curriculum Learning
 
@@ -257,10 +169,10 @@ The training uses curriculum learning with:
 
 The robot receives observations including:
 - Joint positions and velocities
+- Gravity vector
 - Base orientation and angular velocity
 - Contact forces at feet
-- Terrain height information
-- Goal direction and distance
+- Velocity Vector Pointed at the Hill Center
 
 ## Configuration
 
@@ -298,18 +210,6 @@ rewards = RewardsCfg(
 )
 ```
 
-## Results
-
-Training typically shows:
-- **Convergence**: 2000-3000 iterations for basic climbing
-- **Success Rate**: 80%+ on moderate slopes (20-30°)
-- **Robustness**: Handles terrain variations and disturbances
-
-Trained models are saved in `logs/rsl_rl/unitree_go2_slope/` with timestamps.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
