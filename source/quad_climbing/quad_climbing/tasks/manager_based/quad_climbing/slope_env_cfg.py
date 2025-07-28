@@ -94,7 +94,7 @@ class CommandsCfg:
         heading_control_stiffness=1, # stiffness at which the robot keeps its heading
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
-            lin_vel_x=(1, 1.5), lin_vel_y=(0, 0), ang_vel_z=(-1, 1), heading=(math.pi/4, math.pi/4)
+            lin_vel_x=(1, 1.5), lin_vel_y=(0, 0), ang_vel_z=(-1.5, 1.5), heading=(math.pi/4, math.pi/4)
         ),
     )
 
@@ -214,7 +214,7 @@ class RewardsCfg:
         func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     
     # -- penalties
