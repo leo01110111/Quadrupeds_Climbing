@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a reinforcement learning environment for training quadruped robots to climb steep terrain and pyramid-shaped hills using Isaac Lab. The environment features curriculum learning, where robots progressively learn to navigate increasingly difficult slopes.
+This project implements a reinforcement learning environment for training quadruped robots to climb steep terrain and pyramid-shaped hills using Isaac Lab. The environment features curriculum learning, where robots progressively learn to navigate increasingly difficult slopes. This repository is a work in-progress.
 
 **Key Features:**
 
