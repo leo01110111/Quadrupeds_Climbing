@@ -10,7 +10,7 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 @configclass
 class UnitreeGo2SlopePPORunnerCfg(RslRlOnPolicyRunnerCfg):
-    num_steps_per_env = 24 #per episode run time = 50s since sim dt is 0.005
+    num_steps_per_env = 5000
     max_iterations = 5000
     save_interval = 50
     experiment_name = "unitree_go2_slope"

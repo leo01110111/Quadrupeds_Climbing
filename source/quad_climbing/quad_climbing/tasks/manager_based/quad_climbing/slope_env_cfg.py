@@ -87,7 +87,7 @@ class CommandsCfg:
 
     base_velocity = mdp.UniformVelocityCommandCfg( #the config for giving commands in the mdp
         asset_name="robot", #the asset we're commanding
-        resampling_time_range=(10.0, 10.0), #min and max time between resampling a new command. Here we make it so that its always 10s
+        resampling_time_range=(1000.0, 1000.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
         rel_standing_envs=0, #percent of envs that stand still
         rel_heading_envs=1.0, #percent that receive a heading
         heading_command=True, #if true the robot receives a heading
@@ -142,8 +142,8 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "static_friction_range": (0.8, 0.8),
-            "dynamic_friction_range": (0.6, 0.6),
+            "static_friction_range": (1, 1),
+            "dynamic_friction_range": (1, 1),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 64,
         },
