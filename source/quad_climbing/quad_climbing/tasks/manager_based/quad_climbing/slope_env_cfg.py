@@ -72,7 +72,7 @@ class MySceneCfg(InteractiveSceneCfg):
         prim_path="/World/skyLight",
         spawn=sim_utils.DomeLightCfg(
             intensity=750.0,
-            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
+            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_1k.hdr",  # Using 1k instead of 4k resolution
         ),
     )
 
@@ -83,9 +83,39 @@ class MySceneCfg(InteractiveSceneCfg):
 
 @configclass
 class CommandsCfg:
-    #Command specifications for the MDP.
+    """Command specifications for the MDP."""
+    
+    pose_command = mdp.UniformPoseCommandCfg(
+        class_type=mdp.WorldCentricPoseCommand,  # Use our world-centric command class
+        asset_name="robot",  # the asset we're commanding
+        body_name="base",    # the body to control
+        make_quat_unique=False,  # don't enforce unique quaternion representation
+        resampling_time_range=(1000.0, 1000.0),  # very long resampling time to maintain consistent commands
+        debug_vis=True,      # enable visualization
+        ranges=mdp.UniformPoseCommandCfg.Ranges(
+            pos_x=(-1.0, 1.0),      # position ranges in world-frame meters
+            pos_y=(-1.0, 1.0),      # position ranges in world-frame meters
+            pos_z=(0, 0),       # height range in world frame
+            roll=(0.0, 0.0),        # keeping roll level
+            pitch=(0.0, 0.0),       # keeping pitch level
+            yaw=(-math.pi, math.pi)  # full range of yaw motion in world frame
+        ),
+    )
+    
+    """#Command specifications for the MDP.
+    base_velocity = mdp.WorldCentricVelocityCommandCfg( #the config for giving commands in the mdp
+        asset_name="robot", #the asset we're commanding
+        resampling_time_range=(1000.0, 1000.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
+        rel_standing_envs=0, #percent of envs that stand still
+        rel_heading_envs=1.0, #percent that receive a heading
+        heading_control_stiffness=1, # stiffness at which the robot keeps its heading
+        debug_vis=True,
+        ranges=mdp.WorldCentricVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
+            magnitude = (0.0, 3.0), ang_vel_z=(-1.5, 1.5), heading=(math.pi/4, math.pi/4)
+        ),
+    )"""
 
-    base_velocity = mdp.UniformVelocityCommandCfg( #the config for giving commands in the mdp
+    """base_velocity = mdp.UniformVelocityCommandCfg( #the config for giving commands in the mdp
         asset_name="robot", #the asset we're commanding
         resampling_time_range=(1000.0, 1000.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
         rel_standing_envs=0, #percent of envs that stand still
@@ -96,7 +126,7 @@ class CommandsCfg:
         ranges=mdp.UniformVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
             lin_vel_x=(1, 1.5), lin_vel_y=(0, 0), ang_vel_z=(-1.5, 1.5), heading=(math.pi/4, math.pi/4)
         ),
-    )
+    )"""
 
 
 @configclass
@@ -117,7 +147,7 @@ class ObservationsCfg:
         # observation terms (order preserved)
         base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
-        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
+        pose_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "pose_command"})
         joint_pos = ObsTerm(func=mdp.joint_pos, noise=Unoise(n_min=-0.01, n_max=0.01))
         joint_vel = ObsTerm(func=mdp.joint_vel, noise=Unoise(n_min=-1.5, n_max=1.5))
         joint_torque = ObsTerm(func=mdp.joint_effort, noise=Unoise(n_min=-0.25, n_max=0.25))
@@ -210,11 +240,21 @@ class RewardsCfg:
     """Reward terms for the MDP."""
 
     # -- task
-    track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-400.0)
+    position_tracking = RewTerm(
+        func=mdp.position_command_error_tanh,
+        weight=0.5,
+        params={"std": 2.0, "command_name": "pose_command"},
     )
-    track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+    position_tracking_fine_grained = RewTerm(
+        func=mdp.position_command_error_tanh,
+        weight=0.5,
+        params={"std": 0.2, "command_name": "pose_command"},
+    )
+    orientation_tracking = RewTerm(
+        func=mdp.heading_command_error_abs,
+        weight=-0.2,
+        params={"command_name": "pose_command"},
     )
     
     # -- penalties
@@ -277,7 +317,7 @@ class LocomotionSlopeEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the locomotion velocity-tracking environment."""
 
     # Scene settings
-    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
+    scene: MySceneCfg = MySceneCfg(num_envs=2048, env_spacing=2.5)  # Reduced number of environments
     # Basic settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()

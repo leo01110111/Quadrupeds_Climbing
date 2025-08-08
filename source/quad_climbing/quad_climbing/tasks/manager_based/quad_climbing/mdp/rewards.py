@@ -21,14 +21,30 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.manager_base import ManagerTermBase
 from isaaclab.sensors import ContactSensor
 from isaaclab.managers.manager_term_cfg import RewardTermCfg
-from isaaclab.utils.math import quat_rotate_inverse, yaw_quat
+from isaaclab.utils.math import quat_rotate_inverse, yaw_quat, compute_pose_error
 from isaaclab.sensors import ContactSensor, RayCaster
 import isaaclab.sim as sim_utils
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
+#pose rewards
 
+def position_command_error_tanh(env: ManagerBasedRLEnv, std: float, command_name: str) -> torch.Tensor:
+    """Reward position tracking with tanh kernel."""
+    command = env.command_manager.get_command(command_name)
+    des_pos_b = command[:, :3]
+    distance = torch.norm(des_pos_b, dim=1)
+    return 1 - torch.tanh(distance / std)
+
+
+def heading_command_error_abs(env: ManagerBasedRLEnv, command_name: str) -> torch.Tensor:
+    """Penalize tracking orientation error."""
+    command = env.command_manager.get_command(command_name)
+    heading_b = command[:, 3]
+    return heading_b.abs()
+
+#velocity rewards
 
 def track_lin_vel_xy_yaw_frame_exp(
     env, std: float, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
