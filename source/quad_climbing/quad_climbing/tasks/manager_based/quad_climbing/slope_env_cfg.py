@@ -85,7 +85,7 @@ class MySceneCfg(InteractiveSceneCfg):
 class CommandsCfg:
     """Command specifications for the MDP."""
     
-    pose_command = mdp.UniformPoseCommandCfg(
+    """pose_command = mdp.UniformPoseCommandCfg(
         class_type=mdp.WorldCentricPoseCommand,  # Use our world-centric command class
         asset_name="robot",  # the asset we're commanding
         body_name="base",    # the body to control
@@ -100,6 +100,15 @@ class CommandsCfg:
             pitch=(0.0, 0.0),       # keeping pitch level
             yaw=(-math.pi, math.pi)  # full range of yaw motion in world frame
         ),
+    )"""
+
+
+    pose_command = mdp.UniformPose2dCommandCfg(
+        asset_name="robot",
+        simple_heading=False,
+        resampling_time_range=(8.0, 8.0),
+        debug_vis=True,
+        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(-3.0, 3.0), pos_y=(-3.0, 3.0), heading=(-math.pi, math.pi)),
     )
     
     """#Command specifications for the MDP.
@@ -240,6 +249,13 @@ class RewardsCfg:
     """Reward terms for the MDP."""
 
     # -- task
+    """xyz_tracking = RewTerm(
+        func=mdp.xyz_command_error,
+        weight=2,
+        params={"std": 2.0, "command_name": "pose_command"},
+    )"""
+
+    
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-400.0)
     position_tracking = RewTerm(
         func=mdp.position_command_error_tanh,

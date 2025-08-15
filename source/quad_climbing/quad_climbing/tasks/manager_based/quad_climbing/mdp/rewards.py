@@ -30,6 +30,13 @@ if TYPE_CHECKING:
 
 #pose rewards
 
+def xyz_command_error(env: ManagerBasedRLEnv, std: float, command_name: str) -> torch.Tensor:
+    """Reward position tracking."""
+    command = env.command_manager.get_command(command_name)
+    des_pos_b = command[:, :2]
+    error = -1 * torch.norm(des_pos_b, dim=1)
+    return error
+
 def position_command_error_tanh(env: ManagerBasedRLEnv, std: float, command_name: str) -> torch.Tensor:
     """Reward position tracking with tanh kernel."""
     command = env.command_manager.get_command(command_name)

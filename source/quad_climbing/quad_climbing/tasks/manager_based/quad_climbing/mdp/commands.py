@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import omni.log
 
 import isaaclab.utils.math as math_utils 
-from isaaclab.utils.math import combine_frame_transforms, compute_pose_error, quat_from_euler_xyz, quat_unique
+from isaaclab.utils.math import combine_frame_transforms, compute_pose_error, quat_from_euler_xyz, quat_unique,  quat_apply_inverse, wrap_to_pi, yaw_quat
 from isaaclab.assets import Articulation
 from isaaclab.managers import CommandTerm
 from isaaclab.markers import VisualizationMarkers
@@ -22,7 +22,7 @@ from isaaclab.markers import VisualizationMarkers
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from .commands_cfg import UniformVelocityCommandCfg, WorldCentricVelocityCommandCfg, UniformPoseCommandCfg
+    from .commands_cfg import UniformPose2dCommandCfg, UniformVelocityCommandCfg, WorldCentricVelocityCommandCfg, UniformPoseCommandCfg
 
 class UniformPoseCommand(CommandTerm):
     """Command generator for generating pose commands uniformly.
@@ -163,7 +163,7 @@ class WorldCentricPoseCommand(UniformPoseCommand):
     def __init__(self, cfg : UniformPoseCommandCfg, env : ManagerBasedEnv):
         super().__init__(cfg, env)
         self.env_origins =  env.scene.env_origins.to(device=self.device)
-        self.pose_error_w = torch.zeros((env.num_envs, 6), device=self.device)
+        self.xyz_error_b = torch.zeros((env.num_envs, 3), device=self.device)
 
     def __str__(self) -> str:
         msg = "WorldCentricPoseCommand:\n"
@@ -177,17 +177,11 @@ class WorldCentricPoseCommand(UniformPoseCommand):
 
         The first three elements correspond to the position, followed by the quaternion orientation in (w, x, y, z).
         """
-        return self.pose_error_w
+        return self.xyz_error_b 
 
     def _update_command(self):
-        #pose command = command pose - robot pose
-        pos_error, rot_error = compute_pose_error(
-            self.pose_command_w[:, :3],
-            self.pose_command_w[:, 3:],
-            self.robot.data.body_pos_w[:, self.body_idx],
-            self.robot.data.body_quat_w[:, self.body_idx],
-        )
-        self.pose_error_w = torch.cat((pos_error, rot_error), dim=1)
+        #pose command = command xyz - robot xyz
+        self.xyz_error_b = self.pose_command_w[:, :3] - self.robot.data.body_pos_w[:, self.body_idx]
     
     def _update_metrics(self):
         # compute the error
@@ -218,6 +212,181 @@ class WorldCentricPoseCommand(UniformPoseCommand):
         quat = quat_from_euler_xyz(euler_angles[:, 0], euler_angles[:, 1], euler_angles[:, 2])
         # make sure the quaternion has real part as positive
         self.pose_command_w[env_ids, 3:] = quat_unique(quat) if self.cfg.make_quat_unique else quat
+
+    
+    def _set_debug_vis_impl(self, debug_vis: bool):
+        # create markers if necessary for the first tome
+        if debug_vis:
+            if not hasattr(self, "goal_pose_visualizer"):
+                # -- goal pose
+                self.goal_pose_visualizer = VisualizationMarkers(self.cfg.goal_pose_visualizer_cfg)
+                # -- current body pose
+                self.current_pose_visualizer = VisualizationMarkers(self.cfg.current_pose_visualizer_cfg)
+                #-- arrow that points from robot to goal
+                self.current_error_visualizer = VisualizationMarkers(self.cfg.current_error_visualizer_cfg)
+            # set their visibility to true
+            self.goal_pose_visualizer.set_visibility(True)
+            self.current_pose_visualizer.set_visibility(True)
+            self.current_error_visualizer.set_visibility(True)
+        else:
+            if hasattr(self, "goal_pose_visualizer"):
+                self.goal_pose_visualizer.set_visibility(False)
+                self.current_pose_visualizer.set_visibility(False)
+                self.current_error_visualizer.set_visibility(False)
+
+    def _debug_vis_callback(self, event):
+        # check if robot is initialized
+        # note: this is needed in-case the robot is de-initialized. we can't access the data
+        if not self.robot.is_initialized:
+            return
+        # update the markers
+        # -- goal pose
+        self.goal_pose_visualizer.visualize(self.pose_command_w[:, :3], self.pose_command_w[:, 3:])
+        # -- current body pose
+        body_link_pose_w = self.robot.data.body_link_pose_w[:, self.body_idx]
+        self.current_pose_visualizer.visualize(body_link_pose_w[:, :3], body_link_pose_w[:, 3:7])
+
+        goal_arrow_scale, goal_arrow_quat = self._resolve_error_to_arrow(self.xyz_error_b[:, :])
+        self.current_error_visualizer.visualize(body_link_pose_w[:, :3], goal_arrow_quat, goal_arrow_scale) 
+
+    def _resolve_error_to_arrow(self, error: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Converts the XY base velocity command to arrow direction rotation."""
+        # obtain default scale of the marker
+        default_scale = self.current_error_visualizer.cfg.markers["arrow"].scale
+        # arrow-scale
+        arrow_scale = torch.tensor(default_scale, device=self.device).repeat(error.shape[0], 1) #repeated  for all the parallel environments
+        arrow_scale[:, 0] *= torch.linalg.norm(error, dim=1)
+        # arrow-direction
+        yaw_angle = torch.atan2(error[:, 1], error[:, 0])
+        pitch_angle = torch.atan2(error[:, 2], torch.sqrt(error[:,1]**2 +  error[:, 0]**2))
+        zeros = torch.zeros_like(yaw_angle)
+        arrow_quat = math_utils.quat_from_euler_xyz(zeros, pitch_angle, yaw_angle)
+        # convert everything back from base to world frame
+        base_quat_w = self.robot.data.root_quat_w
+        arrow_quat = math_utils.quat_mul(base_quat_w, arrow_quat)
+
+        return arrow_scale, arrow_quat
+    
+
+class UniformPose2dCommand(CommandTerm):
+    """Command generator that generates pose commands containing a 3-D position and heading.
+
+    The command generator samples uniform 2D positions around the environment origin. It sets
+    the height of the position command to the default root height of the robot. The heading
+    command is either set to point towards the target or is sampled uniformly.
+    This can be configured through the :attr:`Pose2dCommandCfg.simple_heading` parameter in
+    the configuration.
+    """
+
+    cfg: UniformPose2dCommandCfg
+    """Configuration for the command generator."""
+
+    def __init__(self, cfg: UniformPose2dCommandCfg, env: ManagerBasedEnv):
+        """Initialize the command generator class.
+
+        Args:
+            cfg: The configuration parameters for the command generator.
+            env: The environment object.
+        """
+        # initialize the base class
+        super().__init__(cfg, env)
+
+        # obtain the robot and terrain assets
+        # -- robot
+        self.robot: Articulation = env.scene[cfg.asset_name]
+
+        # crete buffers to store the command
+        # -- commands: (x, y, z, heading)
+        self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self.heading_command_w = torch.zeros(self.num_envs, device=self.device)
+        self.pos_command_b = torch.zeros_like(self.pos_command_w)
+        self.heading_command_b = torch.zeros_like(self.heading_command_w)
+        # -- metrics
+        self.metrics["error_pos"] = torch.zeros(self.num_envs, device=self.device)
+        self.metrics["error_heading"] = torch.zeros(self.num_envs, device=self.device)
+
+    def __str__(self) -> str:
+        msg = "PositionCommand:\n"
+        msg += f"\tCommand dimension: {tuple(self.command.shape[1:])}\n"
+        msg += f"\tResampling time range: {self.cfg.resampling_time_range}"
+        return msg
+
+    """
+    Properties
+    """
+
+    @property
+    def command(self) -> torch.Tensor:
+        """The desired 2D-pose in base frame. Shape is (num_envs, 4)."""
+        return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
+
+    """
+    Implementation specific functions.
+    """
+
+    def _update_metrics(self):
+        # logs data
+        self.metrics["error_pos_2d"] = torch.norm(self.pos_command_w[:, :2] - self.robot.data.root_pos_w[:, :2], dim=1)
+        self.metrics["error_heading"] = torch.abs(wrap_to_pi(self.heading_command_w - self.robot.data.heading_w))
+
+    def _resample_command(self, env_ids: Sequence[int]):
+        # obtain env origins for the environments
+        self.pos_command_w[env_ids] = self._env.scene.env_origins[env_ids]
+        # offset the position command by the current root position
+        r = torch.empty(len(env_ids), device=self.device)
+        self.pos_command_w[env_ids, 0] += r.uniform_(*self.cfg.ranges.pos_x)
+        self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.ranges.pos_y)
+        self.pos_command_w[env_ids, 2] += self.robot.data.default_root_state[env_ids, 2]
+
+        if self.cfg.simple_heading:
+            # set heading command to point towards target
+            target_vec = self.pos_command_w[env_ids] - self.robot.data.root_pos_w[env_ids]
+            target_direction = torch.atan2(target_vec[:, 1], target_vec[:, 0])
+            flipped_target_direction = wrap_to_pi(target_direction + torch.pi)
+
+            # compute errors to find the closest direction to the current heading
+            # this is done to avoid the discontinuity at the -pi/pi boundary
+            curr_to_target = wrap_to_pi(target_direction - self.robot.data.heading_w[env_ids]).abs()
+            curr_to_flipped_target = wrap_to_pi(flipped_target_direction - self.robot.data.heading_w[env_ids]).abs()
+
+            # set the heading command to the closest direction
+            self.heading_command_w[env_ids] = torch.where(
+                curr_to_target < curr_to_flipped_target,
+                target_direction,
+                flipped_target_direction,
+            )
+        else:
+            # random heading command
+            self.heading_command_w[env_ids] = r.uniform_(*self.cfg.ranges.heading)
+
+    def _update_command(self):
+        """Re-target the position command to the current root state."""
+        target_vec = self.pos_command_w - self.robot.data.root_pos_w[:, :3]
+        self.pos_command_b[:] = quat_apply_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec)
+        self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self.robot.data.heading_w)
+
+    def _set_debug_vis_impl(self, debug_vis: bool):
+        # create markers if necessary for the first tome
+        if debug_vis:
+            if not hasattr(self, "goal_pose_visualizer"):
+                self.goal_pose_visualizer = VisualizationMarkers(self.cfg.goal_pose_visualizer_cfg)
+            # set their visibility to true
+            self.goal_pose_visualizer.set_visibility(True)
+        else:
+            if hasattr(self, "goal_pose_visualizer"):
+                self.goal_pose_visualizer.set_visibility(False)
+
+    def _debug_vis_callback(self, event):
+        # update the box marker
+        self.goal_pose_visualizer.visualize(
+            translations=self.pos_command_w,
+            orientations=quat_from_euler_xyz(
+                torch.zeros_like(self.heading_command_w),
+                torch.zeros_like(self.heading_command_w),
+                self.heading_command_w,
+            ),
+        )
+
 
 
 class UniformVelocityCommand(CommandTerm):
