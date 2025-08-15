@@ -175,7 +175,7 @@ class WorldCentricPoseCommand(UniformPoseCommand):
     def command(self) -> torch.Tensor:
         """The desired pose command. Shape is (num_envs, 7).
 
-        The first three elements correspond to the position, followed by the quaternion orientation in (w, x, y, z).
+        The first three elements correspond to the position.
         """
         return self.xyz_error_b 
 
