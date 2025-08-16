@@ -85,16 +85,13 @@ class MySceneCfg(InteractiveSceneCfg):
 class CommandsCfg:
     #Command specifications for the MDP.
 
-    base_velocity = mdp.UniformVelocityCommandCfg( #the config for giving commands in the mdp
+    base_velocity = mdp.TrackingVelocityCommand( #the config for giving commands in the mdp
         asset_name="robot", #the asset we're commanding
         resampling_time_range=(1000.0, 1000.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
-        rel_standing_envs=0, #percent of envs that stand still
-        rel_heading_envs=1.0, #percent that receive a heading
-        heading_command=True, #if true the robot receives a heading
-        heading_control_stiffness=1, # stiffness at which the robot keeps its heading
         debug_vis=True,
-        ranges=mdp.UniformVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
-            lin_vel_x=(1, 1.5), lin_vel_y=(0, 0), ang_vel_z=(-1.5, 1.5), heading=(math.pi/4, math.pi/4)
+        heading_control_stiffness=2.0,
+        ranges=mdp.TrackingVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
+            pos_x=(0, 0), pos_y=(0, 0), velocity=(2.0,2.0),  ang_vel_z=(2.0,2.0)
         ),
     )
 
