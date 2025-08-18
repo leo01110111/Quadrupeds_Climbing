@@ -46,7 +46,7 @@ class MySceneCfg(InteractiveSceneCfg):
         prim_path="/World/ground", #where the primitive should be located
         terrain_type="generator", #means that the terrain will be procedurally generated rather than loaded from a file
         terrain_generator=SLOPE_TERRAIN_CFG, #this is a generator config object used to generate the terrain. Params include the tpes of terrain and properties of them
-        max_init_terrain_level=5, #max initial how arwe difficulty of the terrain
+        max_init_terrain_level=0, #max initial how arwe difficulty of the terrain
         collision_group=-1, #means that the terrain will collide with everything
         physics_material=sim_utils.RigidBodyMaterialCfg( #defines the physical properties of the terrain.
             friction_combine_mode="multiply", #how the fric coeffs are cominded whn obj is on both surfaces
@@ -227,17 +227,17 @@ class RewardsCfg:
             "threshold": 0.5,
         },
     )"""
-    """undesired_contacts = RewTerm(
+    undesired_thigh_contact = RewTerm(
         func=mdp.undesired_contacts,
         weight=-1.0,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*THIGH"), "threshold": 1.0},
-    )"""
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*thigh"), "threshold": 1.0},
+    )
 
-    """undesired_body_contact = RewTerm(
+    undesired_body_contact = RewTerm(
         func=mdp.undesired_contacts,
         weight=-1.0,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
-    )"""
+    )
     # -- optional penalties
     #flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0)
     #dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.0)
