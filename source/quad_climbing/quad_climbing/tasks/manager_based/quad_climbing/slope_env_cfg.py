@@ -54,11 +54,6 @@ class MySceneCfg(InteractiveSceneCfg):
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
-        visual_material=sim_utils.MdlFileCfg( #config for the visual appearance of the terrain such as its textures and shaders
-            mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
-            project_uvw=True,
-            texture_scale=(0.25, 0.25),
-        ),
         debug_vis=False, #if set to true it shos wireframs and collision shapes
     )
 
@@ -72,7 +67,6 @@ class MySceneCfg(InteractiveSceneCfg):
         prim_path="/World/skyLight",
         spawn=sim_utils.DomeLightCfg(
             intensity=750.0,
-            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
         ),
     )
 
@@ -85,7 +79,7 @@ class MySceneCfg(InteractiveSceneCfg):
 class CommandsCfg:
     #Command specifications for the MDP.
 
-    base_velocity = mdp.TrackingVelocityCommand( #the config for giving commands in the mdp
+    base_velocity = mdp.TrackingVelocityCommandCfg( #the config for giving commands in the mdp
         asset_name="robot", #the asset we're commanding
         resampling_time_range=(1000.0, 1000.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
         debug_vis=True,

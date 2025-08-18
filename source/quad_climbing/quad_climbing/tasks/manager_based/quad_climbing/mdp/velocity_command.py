@@ -22,7 +22,7 @@ from isaaclab.utils.math import quat_apply_inverse, quat_from_euler_xyz, wrap_to
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from .commands_cfg import NormalVelocityCommandCfg, UniformVelocityCommandCfg,TrackingVelocityCommandCfg
+    from .commands_cfg import NormalVelocityCommandCfg, UniformVelocityCommandCfg, TrackingVelocityCommandCfg
 
 
 class TrackingVelocityCommand(CommandTerm):
@@ -93,20 +93,20 @@ class TrackingVelocityCommand(CommandTerm):
     def _resample_command(self, env_ids: Sequence[int]):
         r = torch.empty(len(env_ids), device=self.device)
         # samples velocity command
-        self.velocity[env_ids] = r.uniform_(*self.cfg.ranges.velocity)
+        self.velocity[env_ids] = r.uniform_(*self.cfg.ranges.velocity).unsqueeze(1)
         #Samples position command
         # -- x_pos and y_pos specified in world frame
         self.pos_command_w[env_ids] =  self._env.scene.env_origins[env_ids]
-        self.pos_command_w[env_ids, 0] += r.uniform_(*self.cfg.ranges.x_pos)
-        self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.ranges.y_pos)
+        self.pos_command_w[env_ids, 0] += r.uniform_(*self.cfg.ranges.pos_x)
+        self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.ranges.pos_y)
 
     def _update_command(self):
         """Re-target the velocity command on the robot to be facing the goal position."""
         # set xy velocity and heading command to point towards target
-        target_vec_w = self.pos_command_w[:, :2] - self.robot.data.root_pos_w[:, :2]
+        target_vec_w = self.pos_command_w[:, :3] - self.robot.data.root_pos_w[:, :3]
         target_vec_b = quat_apply_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
-        norm = torch.norm(target_vec_b, dim=1).unsqueeze(1)
-        target_vec_b = target_vec_b / torch.clamp(norm, min=0.001)
+        norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
+        target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
         self.vel_command_b[:, :2] = target_vec_b * self.velocity
         target_heading_w = torch.atan2(target_vec_b[:, 1], target_vec_b[:, 0]) 
         target_heading_b = wrap_to_pi(target_heading_w - self.robot.data.heading_w)

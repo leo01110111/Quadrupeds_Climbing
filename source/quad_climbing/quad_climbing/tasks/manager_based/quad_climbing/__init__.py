@@ -12,3 +12,5 @@ Reference:
 """
 
 from quad_climbing.tasks.manager_based.quad_climbing.slope_env_cfg import LocomotionSlopeEnvCfg # the dot indicates that we're searching for the module in the file's directory not in the root directory or PYTHONPATH
+
+from . import go2
