@@ -17,7 +17,7 @@ import isaaclab.utils.math as math_utils
 from isaaclab.assets import Articulation
 from isaaclab.managers import CommandTerm
 from isaaclab.markers import VisualizationMarkers
-from isaaclab.utils.math import quat_apply_inverse, quat_from_euler_xyz, wrap_to_pi, yaw_quat
+from isaaclab.utils.math import quat_rotate_inverse, wrap_to_pi, yaw_quat
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -104,7 +104,7 @@ class TrackingVelocityCommand(CommandTerm):
         """Re-target the velocity command on the robot to be facing the goal position."""
         # set xy velocity and heading command to point towards target
         target_vec_w = self.pos_command_w[:, :3] - self.robot.data.root_pos_w[:, :3]
-        target_vec_b = quat_apply_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
+        target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
         norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
         target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
         self.vel_command_b[:, :2] = target_vec_b * self.velocity
