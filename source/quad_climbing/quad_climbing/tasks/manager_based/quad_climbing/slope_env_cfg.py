@@ -84,8 +84,8 @@ class CommandsCfg:
         resampling_time_range=(1000.0, 1000.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
         debug_vis=True,
         heading_control_stiffness=2.0,
-        ranges=mdp.TrackingVelocityCommandCfg.Ranges( #remember that these are commands in respect  to the robot frame except for the heading
-            pos_x=(0, 0), pos_y=(0, 0), velocity=(2.0,2.0),  ang_vel_z=(2.0,2.0)
+        ranges=mdp.TrackingVelocityCommandCfg.Ranges( #Note that ang_vel_z needs to be neg to positive or else the robot will go in circles
+            pos_x=(0, 0), pos_y=(0, 0), velocity=(1.0,1.0),  ang_vel_z=(-2.0,2.0)
         ),
     )
 
@@ -205,7 +205,7 @@ class RewardsCfg:
         func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     
     # -- penalties

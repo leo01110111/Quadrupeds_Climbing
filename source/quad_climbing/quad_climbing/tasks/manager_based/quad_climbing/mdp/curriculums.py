@@ -95,7 +95,7 @@ def pyramid_max_height(env : ManagerBasedRLEnv, cfg: TerrainGeneratorCfg, import
     #debug
     #print(f"levels, {level.shape}: {level.cpu().numpy()}")
     #print(f"slope, {slope.shape}: {slope}")
-    print(f"height_max, {height_max.shape}: {height_max}")
+    #print(f"height_max, {height_max.shape}: {height_max}")
     #print(f"z_pf shape: ", z_pf.shape)
     #print(f"z_pf: ", z_pf)
     #print(f"xx, {xx.shape}: {xx}")
