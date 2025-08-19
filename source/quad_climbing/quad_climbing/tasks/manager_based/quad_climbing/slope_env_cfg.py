@@ -46,7 +46,7 @@ class MySceneCfg(InteractiveSceneCfg):
         prim_path="/World/ground", #where the primitive should be located
         terrain_type="generator", #means that the terrain will be procedurally generated rather than loaded from a file
         terrain_generator=SLOPE_TERRAIN_CFG, #this is a generator config object used to generate the terrain. Params include the tpes of terrain and properties of them
-        max_init_terrain_level=0, #max initial how arwe difficulty of the terrain
+        max_init_terrain_level=8, #max initial how arwe difficulty of the terrain
         collision_group=-1, #means that the terrain will collide with everything
         physics_material=sim_utils.RigidBodyMaterialCfg( #defines the physical properties of the terrain.
             friction_combine_mode="multiply", #how the fric coeffs are cominded whn obj is on both surfaces
@@ -254,6 +254,10 @@ class TerminationsCfg:
     )
     at_top =  DoneTerm(
         func=mdp.robot_at_top,
+    )
+    out_of_bounds = DoneTerm(
+        func=mdp.terrain_out_of_bounds,
+        params={"asset_cfg": SceneEntityCfg("robot"), "distance_buffer" : 3.0}
     )
 
 

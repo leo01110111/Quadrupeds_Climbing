@@ -25,10 +25,12 @@ def joint_effort(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntity
     return asset.data.applied_torque[:, asset_cfg.joint_ids]
 
 def foot_contacts(env: ManagerBasedRLEnv, threshold: float, sensor_cfg: SceneEntityCfg) -> torch.Tensor:
-    #print("Body names:", sensor_cfg.body_names) #the body names is indeed that of feet
-    #print("Body_ids (hopefully of foot):", sensor_cfg.body_ids) #verified
     foot_contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
     net_contact_forces = foot_contact_sensor.data.net_forces_w_history  #(num_envs, history, amt of bodies, xyz)
-    #print(f"Foot contact force, {net_contact_forces.shape}: {net_contact_forces[:, :, sensor_cfg.body_ids,:]}")
-    net_contact_forces_flat = net_contact_forces.view(net_contact_forces.shape[0], -1) #(num_envs, history * 4 feet * xyz force components)
-    return net_contact_forces_flat
+    #print(f"Foot contact force, {net_contact_forces.shape}: {net_contact_forces[:, :, sensor_cfg.body_ids,:]}") #(num_envs, history * 4 feet * xyz force components)
+    foot_contact_states = torch.any(
+        torch.max(torch.norm(net_contact_forces[:,:,sensor_cfg.body_ids,:], dim=-1), dim=1)[0].unsqueeze(1) > 1.0, dim=1 
+    )  #Chooses the max contact force in history and sees if it passes a threshold. It passes the contact state to a (num_envs, 4 feet) tensor
+    print(f"foot contact states {foot_contact_states.shape}: {foot_contact_states}")
+    return foot_contact_states
+
