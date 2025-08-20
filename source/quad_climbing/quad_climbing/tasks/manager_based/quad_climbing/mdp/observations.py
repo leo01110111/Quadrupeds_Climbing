@@ -34,3 +34,14 @@ def foot_contacts(env: ManagerBasedRLEnv, threshold: float, sensor_cfg: SceneEnt
     print(f"foot contact states {foot_contact_states.shape}: {foot_contact_states}")
     return foot_contact_states
 
+
+def action_history(env: ManagerBasedEnv, history_len: int, history_list: list, action_name: str) -> torch.Tensor:
+    """The last n input action to the environment.
+
+    The name of the action term for which the action is required. If None, the
+    entire action tensor is returned.
+    """
+    print("All:", env.action_manager.action)
+    print("Joint pos:", env.action_manager.get_term(action_name).raw_actions)
+
+    return env.action_manager.get_term(action_name).raw_actions

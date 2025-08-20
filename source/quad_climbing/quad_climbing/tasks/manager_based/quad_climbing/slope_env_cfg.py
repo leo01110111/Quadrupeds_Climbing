@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
+import torch
 from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
@@ -113,7 +114,10 @@ class ObservationsCfg:
         joint_vel = ObsTerm(func=mdp.joint_vel, noise=Unoise(n_min=-1.5, n_max=1.5))
         joint_torque = ObsTerm(func=mdp.joint_effort, noise=Unoise(n_min=-0.25, n_max=0.25))
         projected_gravity = ObsTerm(func=mdp.projected_gravity, noise=Unoise(n_min=-0.05, n_max=0.05),)
-        actions = ObsTerm(func=mdp.last_action)
+        actions = ObsTerm(func=mdp.action_history,
+                          params={"action_name": "joint_pos",
+                              "history_len": 20}
+                        )
 
         #contact sensor observation
         foot_contact = ObsTerm(
@@ -124,6 +128,12 @@ class ObservationsCfg:
         def __post_init__(self):
             self.enable_corruption = True
             self.concatenate_terms = True
+            action_name = self.actions.params["action_name"]
+            history_len = self.actions.params["history_len"]
+            self.action_history = torch.zeros((self.num_envs, history_len,  self.env.action_manager.get_term(action_name).raw_actions), device=self.device)
+            #action history is shared across all envs. (num_envs, history_len, action_size)
+            #inject into the params of the ObsTerm
+            self.actions.params["history_list"] = self.action_history
 
     # observation groups
     policy: PolicyCfg = PolicyCfg()
@@ -299,7 +309,7 @@ class LocomotionSlopeEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = self.decimation #4 time steps for every rendered frame
         self.sim.physics_material = self.scene.terrain.physics_material
         self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**15
-        
+
         if getattr(self.curriculum, "terrain_levels", None) is not None:
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = True
