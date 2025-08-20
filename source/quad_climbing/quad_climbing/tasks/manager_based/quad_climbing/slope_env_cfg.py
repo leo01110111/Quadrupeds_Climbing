@@ -116,10 +116,10 @@ class ObservationsCfg:
         actions = ObsTerm(func=mdp.last_action)
 
         #contact sensor observation
-        foot_contact = ObsTerm(
+        """foot_contact = ObsTerm(
             func=mdp.foot_contacts,
             params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"), "threshold": 1.0},
-        )
+        )"""
       
         def __post_init__(self):
             self.enable_corruption = True
@@ -215,27 +215,27 @@ class RewardsCfg:
     )
     
     # -- penalties
-    #dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
-    #dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
-    #action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
-    """feet_air_time = RewTerm(
+    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight= -0.00002)
+    dof_motion_l2 = RewTerm(func=mdp.joint_motion_l2, weight=-0.001)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.25) #change in angles of the actions
+    feet_air_time = RewTerm( #rewards swing phase air time longer than 0.5 seconds
         func=mdp.feet_air_time,
-        weight=0.125,
+        weight=0.3,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*FOOT"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"),
             "command_name": "base_velocity",
             "threshold": 0.5,
         },
-    )"""
+    )
     undesired_thigh_contact = RewTerm(
         func=mdp.undesired_contacts,
-        weight=-1.0,
+        weight=-0.1,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*thigh"), "threshold": 1.0},
     )
 
     undesired_body_contact = RewTerm(
         func=mdp.undesired_contacts,
-        weight=-1.0,
+        weight=-0.1,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
     )
     # -- optional penalties
