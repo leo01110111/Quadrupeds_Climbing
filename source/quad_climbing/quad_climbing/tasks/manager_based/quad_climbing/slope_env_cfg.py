@@ -118,7 +118,7 @@ class ObservationsCfg:
         #contact sensor observation
         foot_contact = ObsTerm(
             func=mdp.foot_contacts,
-            params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"), "threshold": 1.0},
+            params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"), "threshold": 1.5},
         )
       
         def __post_init__(self):
