@@ -20,6 +20,6 @@ SLOPE_TERRAIN_CFG = TerrainGeneratorCfg(
     sub_terrains={
         "hf_pyramid_slope": terrain_gen.HfPyramidSlopedTerrainCfg(
             proportion=1.0, slope_range=(0.0, 0.785), platform_width=2.0, border_width=0.25
-        )
+        ),  
     }
 )
