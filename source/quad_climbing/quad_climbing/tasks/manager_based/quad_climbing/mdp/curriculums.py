@@ -107,21 +107,72 @@ def pyramid_max_height(env : ManagerBasedRLEnv, cfg: TerrainGeneratorCfg, import
 def terrain_levels_vel(
     env: ManagerBasedRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
-    """Curriculum based on the distance the robot walked when commanded to move at a desired velocity.
-
-    This term is used to increase the difficulty of the terrain when the robot walks far enough and decrease the
-    difficulty when the robot walks less than half of the distance required by the commanded velocity.
-
-    .. note::
-        It is only possible to use this term with the terrain type ``generator``. For further information
-        on different terrain types, check the :class:`isaaclab.terrains.TerrainImporter` class.
-
-    Returns:
-        The mean terrain level for the given environment ids.
+    """Curriculum with variable leveling functions depending on the robots location in the map
     """
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
     terrain: TerrainImporter = env.scene.terrain
+    terrain_origins = terrain.terrain_origins
+    env_origins = terrain.env_origins
+    print("Robot Origins: ", env_origins)
+    print("Terrain Origins: ", terrain_origins) #col is the second dimension, xyz is the third dimension
+    """- find the col of the different terrains 
+    - find the col the env_id is on
+    - match the upgrade downgrade function to the right env_id"""
+    subterrain_dict = env.scene.terrain.cfg.terrain_generator.sub_terrains
+    
+    cumulative_mean_level = 0.0
+
+    available_terrains = {'hf_pyramid_slope', 'random_rough'}
+
+    num_envs = len(env_ids)
+    num_cols = terrain.cfg.terrain_generator.num_cols
+    col_index = 0
+    col_separaton = []
+    #find the terrain types and their proportions
+    #find the y value boundaries of all the sub-terrains
+    for col in range(num_cols):
+        separation = terrain_origins[0,col,1]
+        col_separaton.append(separation.item())
+    print("col_separation", col_separaton)
+
+    for key in subterrain_dict.keys():
+        if key not in available_terrains:
+            raise Exception("No leveling function associated with terrain")
+        elif key == "hf_pyramid_slope": #the order of the if statements should match the insertion order of the subterrains
+            proportion =  terrain.cfg.terrain_generator.sub_terrains["hf_pyramid_slope"].proportion
+            col_index = int(num_cols*proportion)
+            ids = []
+            for id in env_ids:
+                if env_origins[id, 1] <= col_separaton[col_index-1]:
+                    ids.append(id.item())
+            cumulative_mean_level += _hill_level(env, ids, asset_cfg)/num_envs
+        elif key == "random_rough":
+            proportion =  terrain.cfg.terrain_generator.sub_terrains["random_rough"].proportion
+            col_index += int(num_cols*proportion)
+            ids = []
+            for id in env_ids:
+                lower_bound = int(col_index - 1 -  num_cols * proportion)
+                if env_origins[id, 1] <= col_separaton[col_index - 1] and env_origins[id, 1] > col_separaton[lower_bound]:
+                    ids.append(id.item())
+            cumulative_mean_level += _flat_level(env, ids, asset_cfg)/num_envs
+
+    #debug
+    """
+    print("Leveling Debug: bool format: move down, move up")
+    for i in range(len(env_ids)):
+        print(f"robot_z {robot_height[i]} vs max_height {max_height[i]} = {move_down[i]}, {move_up[i]}")
+        """
+
+    # return the mean terrain level
+    return torch.tensor([cumulative_mean_level])
+
+def _hill_level(env: ManagerBasedRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Levels the robots based on height"""
+    asset: Articulation = env.scene[asset_cfg.name]
+    terrain: TerrainImporter = env.scene.terrain
+    print(f"env_ids: {env_ids}")
     # compute the heights the robots climbed
     robot_height = asset.data.root_pos_w[env_ids, 2]
 
@@ -131,16 +182,30 @@ def terrain_levels_vel(
     move_up = robot_height > max_height * 0.8
     # robots that walked less than half of their required distance go to simpler terrains
     move_down = robot_height < max_height * 0.5 
+
     move_down *= ~move_up
-
-    #debug
-    """
-    print("Leveling Debug: bool format: move down, move up")
-    for i in range(len(env_ids)):
-        print(f"robot_z {robot_height[i]} vs max_height {max_height[i]} = {move_down[i]}, {move_up[i]}")
-        """
-
+    
     # update terrain levels
     terrain.update_env_origins(env_ids, move_up, move_down)
+    print(f"hill level ({env_ids}) = {move_down}, {move_up}")
     # return the mean terrain level
-    return torch.mean(terrain.terrain_levels.float())
+    return torch.sum(terrain.terrain_levels.float())
+
+def _flat_level(env: ManagerBasedRLEnv, env_ids: set[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Levels the robots based on distance traversed. Cmd must be base velocity"""
+    asset: Articulation = env.scene[asset_cfg.name]
+    terrain: TerrainImporter = env.scene.terrain
+    command = env.command_manager.get_command("base_velocity")
+    # compute the distance the robot walked
+    distance = torch.norm(asset.data.root_pos_w[env_ids, :2] - env.scene.env_origins[env_ids, :2], dim=1)
+    # robots that walked far enough progress to harder terrains
+    move_up = distance > terrain.cfg.terrain_generator.size[0] / 2
+    # robots that walked less than half of their required distance go to simpler terrains
+    move_down = distance < torch.norm(command[env_ids, :2], dim=1) * env.max_episode_length_s * 0.5
+    move_down *= ~move_up
+    # update terrain levels
+    terrain.update_env_origins(env_ids, move_up, move_down)
+    print(f"flat level  ({env_ids}) = {move_down}, {move_up}")
+    # return the mean terrain level
+    return torch.sum(terrain.terrain_levels.float())

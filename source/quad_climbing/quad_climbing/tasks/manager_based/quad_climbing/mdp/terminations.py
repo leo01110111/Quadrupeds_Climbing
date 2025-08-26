@@ -16,18 +16,69 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab.assets import RigidObject
+from isaaclab.assets import Articulation
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.terrains import TerrainImporter
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
-def robot_at_top(
-    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+
+def terrain_specific_terminations(
+        env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Chooses a termination function depending on where the robot is
+    """
+    # extract the used quantities (to enable type-hinting)
+    terrain: TerrainImporter = env.scene.terrain
+    terrain_origins = terrain.terrain_origins
+    env_origins = terrain.env_origins
+
+    subterrain_dict = env.scene.terrain.cfg.terrain_generator.sub_terrains
+    
+    available_terrains = {'hf_pyramid_slope', 'random_rough'}
+
+    num_cols = terrain.cfg.terrain_generator.num_cols
+    col_index = 0
+    col_separaton = []
+    #find the terrain types and their proportions
+    #find the y value boundaries of all the sub-terrains
+    for col in range(num_cols):
+        separation = terrain_origins[0,col,1]
+        col_separaton.append(separation.item())
+
+    terminate = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    for key in subterrain_dict.keys():
+        if key not in available_terrains:
+            raise Exception("No termination function associated with terrain")
+        elif key == "hf_pyramid_slope": #the order of the if statements should match the insertion order of the subterrains
+            proportion =  terrain.cfg.terrain_generator.sub_terrains["hf_pyramid_slope"].proportion
+            col_index = int(num_cols*proportion)
+            ids = []
+            for id in range(env.num_envs):
+                if env_origins[id, 1] <= col_separaton[col_index-1]:
+                    ids.append(id)
+            terminate[ids] = _robot_at_top(env, ids, asset_cfg)
+        """elif key == "random_rough":
+            proportion =  terrain.cfg.terrain_generator.sub_terrains["random_rough"].proportion
+            col_index += int(num_cols*proportion)
+            ids = []
+            for id in range(env.num_envs):
+                lower_bound = int(col_index - 1 -  num_cols * proportion)
+                if env_origins[id, 1] <= col_separaton[col_index - 1] and env_origins[id, 1] > col_separaton[lower_bound]:
+                    ids.append(id)
+            #we dont have any terrain specific terminations for flat"""
+    return terminate
+
+
+def _robot_at_top(
+    env: ManagerBasedRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     asset : RigidObject = env.scene[asset_cfg.name]
-    robot_height = asset.data.root_pos_w[:, 2]
+    robot_height = asset.data.root_pos_w[env_ids, 2]
     #print("robot_height: ", robot_height)
-    hill_height = env.scene.env_origins[:, 2]
+    hill_height = env.scene.env_origins[env_ids, 2]
     #print("hill height:", hill_height)
     return robot_height >= hill_height
 

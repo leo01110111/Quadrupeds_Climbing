@@ -252,8 +252,8 @@ class TerminationsCfg:
         func=mdp.illegal_contact,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
     )
-    at_top =  DoneTerm(
-        func=mdp.robot_at_top,
+    terrain_specific =  DoneTerm(
+        func=mdp.terrain_specific_terminations,
     )
 
 
