@@ -218,7 +218,7 @@ class RewardsCfg:
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight= -0.00002)
     dof_motion_l2 = RewTerm(func=mdp.joint_motion_l2, weight=-0.001)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.25) #change in angles of the actions
-    feet_air_time = RewTerm( #rewards swing phase air time longer than 0.5 seconds
+    """feet_air_time = RewTerm( #rewards swing phase air time longer than 0.5 seconds
         func=mdp.feet_air_time,
         weight=0.03,
         params={
@@ -226,7 +226,7 @@ class RewardsCfg:
             "command_name": "base_velocity",
             "threshold": 0.5,
         },
-    )
+    )"""
     undesired_thigh_contact = RewTerm(
         func=mdp.undesired_contacts,
         weight=-0.1,
