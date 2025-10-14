@@ -106,20 +106,20 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         #proprioceptive observation terms
-        base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
+        #base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
+        projected_gravity = ObsTerm(func=mdp.projected_gravity, noise=Unoise(n_min=-0.05, n_max=0.05),)
         velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
         joint_pos = ObsTerm(func=mdp.joint_pos, noise=Unoise(n_min=-0.01, n_max=0.01))
         joint_vel = ObsTerm(func=mdp.joint_vel, noise=Unoise(n_min=-1.5, n_max=1.5))
-        joint_torque = ObsTerm(func=mdp.joint_effort, noise=Unoise(n_min=-0.25, n_max=0.25))
-        projected_gravity = ObsTerm(func=mdp.projected_gravity, noise=Unoise(n_min=-0.05, n_max=0.05),)
+        #joint_torque = ObsTerm(func=mdp.joint_effort, noise=Unoise(n_min=-0.25, n_max=0.25))
         actions = ObsTerm(func=mdp.last_action)
 
-        #contact sensor observation
+        """#contact sensor observation
         foot_contact = ObsTerm(
             func=mdp.foot_contacts,
             params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"), "threshold": 1.0},
-        )
+        )"""
       
         def __post_init__(self):
             self.enable_corruption = True
