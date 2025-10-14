@@ -21,6 +21,30 @@ This project implements a reinforcement learning environment for training quadru
 - NVIDIA GPU with CUDA support
 - Python 3.10+
 
+##Branch Descriptions
+
+**Branches that always work:**
+- velocity_stable
+ - Command is a velocity vector that tracks the center of the hill.
+
+**Branches in development that vary observations and inherit velocity_stable (not necesarily updated to the latest velocity_stable branch)**
+- vel_foot_contact
+ - with foot contact sensors
+- vel_no_foot
+ - with no foot contact sensors
+- velocity_effort
+ - effort as an observation
+
+Branches that vary commands
+- velocity
+ - Uses the old velocity command setup in the RSL RL example and varies robot spawning to be at the center of the terrain among many other changes.
+- pose
+ - Uses desired pose as command
+
+Branches that vary terrain, inherit velocity stable
+- variable_terrain
+ - Has flat ground
+
 ### Setup
 
 1. **Clone the repository** outside of your Isaac Lab installation:
