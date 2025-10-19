@@ -23,6 +23,15 @@ class TrackingVelocityCommandCfg(CommandTermCfg):
     """Name of the asset in the environment for which the commands are generated."""
 
     heading_control_stiffness: float = 1.0
+    """Scale factor to convert the heading error to angular velocity command. Defaults to 1.0."""
+
+    rel_standing_envs: float = 0.1
+    """The sampled probability of environments that should be standing still. Defaults to 0.1."""
+
+    rel_forward_envs: float = 0.5
+    """The sampled probability of environments where the robots align their front face to the velocity command
+    (the others with P(1-rel_standing_env-rel_forward_envs) align to a random heading). Defaults to 0.5.
+    """
 
     @configclass
     class Ranges:
@@ -35,10 +44,11 @@ class TrackingVelocityCommandCfg(CommandTermCfg):
         """Range for the y position of the goal in env origin frame (in m)."""
 
         velocity: tuple[float, float] = MISSING
-        """Range for the magnitude of the velocities (in m/s)"""
+        """Range for the magnitude of the velocities (in m/s). Is always positive"""
 
         ang_vel_z: tuple[float, float] = MISSING
-        """Range for the magnitude of the angular velocities (in rad/s)"""
+        """Range for the magnitude of the angular velocities (in rad/s).
+        It clips the stiffness*heading_error ang vel."""
 
     ranges: Ranges = MISSING
     """Distribution ranges for the position commands."""

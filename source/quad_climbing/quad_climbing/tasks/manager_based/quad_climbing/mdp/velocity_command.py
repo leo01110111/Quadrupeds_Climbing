@@ -19,16 +19,16 @@ from isaaclab.managers import CommandTerm
 from isaaclab.markers import VisualizationMarkers
 from isaaclab.utils.math import quat_rotate_inverse, wrap_to_pi, yaw_quat
 
+import math
+
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from .commands_cfg import NormalVelocityCommandCfg, UniformVelocityCommandCfg, TrackingVelocityCommandCfg
 
-
 class TrackingVelocityCommand(CommandTerm):
-    """Command generator that generates a velocity command that tracks a goal location.
-    More precisely that means the velocity vector will always point to the position,
-    and the yaw velocity encourages the front of the robot to point at the goal."""
+    """Command generator that generates a velocity command that points to a goal location.
+    The command velocity is to move and orient the front towards the goal."""
 
     cfg: TrackingVelocityCommandCfg
 
@@ -48,11 +48,15 @@ class TrackingVelocityCommand(CommandTerm):
         # -- robot
         self.robot: Articulation = env.scene[cfg.asset_name]
 
-        # crete buffers to store the command
+        # create buffers to store the command
         # -- command: x vel, y vel, yaw vel, heading
         self.vel_command_b = torch.zeros(self.num_envs, 3, device=self.device)
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
+
+        self.random_heading_w = torch.zeros(self.num_envs, 1, device=self.device)
         self.velocity = torch.zeros(self.num_envs, 1, device=self.device)
+        self.ang_vel_z = torch.zeros(self.num_envs, 1, device=self.device)
+        self.mode = torch.zeros(self.num_envs, 1, device=self.device)
 
         # -- metrics
         self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
@@ -91,9 +95,16 @@ class TrackingVelocityCommand(CommandTerm):
         )
 
     def _resample_command(self, env_ids: Sequence[int]):
+
+        #choose between standing, heading, headless
         r = torch.empty(len(env_ids), device=self.device)
-        # samples velocity command
+
+        # samples velocity magnitude command
         self.velocity[env_ids] = r.uniform_(*self.cfg.ranges.velocity).unsqueeze(1)
+        self.ang_vel_z[env_ids] = r.uniform_(*self.cfg.ranges.ang_vel_z).unsqueeze(1)
+        self.random_heading_w[env_ids] = r.uniform_(-math.pi,math.pi).unsqueeze(1)
+        self.mode[env_ids] = r.uniform_(0,1).unsqueeze(1)
+
         #Samples position command
         # -- x_pos and y_pos specified in world frame
         self.pos_command_w[env_ids] =  self._env.scene.env_origins[env_ids]
@@ -101,20 +112,62 @@ class TrackingVelocityCommand(CommandTerm):
         self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.ranges.pos_y)
 
     def _update_command(self):
-        """Re-target the velocity command on the robot to be facing the goal position."""
-        # set xy velocity and heading command to point towards target
-        target_vec_w = self.pos_command_w[:, :3] - self.robot.data.root_pos_w[:, :3]
-        target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
-        norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
-        target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
-        self.vel_command_b[:, :2] = target_vec_b * self.velocity
-        target_heading_w = torch.atan2(target_vec_b[:, 1], target_vec_b[:, 0]) 
-        target_heading_b = wrap_to_pi(target_heading_w - self.robot.data.heading_w)
-        self.vel_command_b[:, 2] = torch.clip(
-                self.cfg.heading_control_stiffness * target_heading_b,
-                min=self.cfg.ranges.ang_vel_z[0],
-                max=self.cfg.ranges.ang_vel_z[1],
-            )
+        """Re-target the velocity command to the goal."""
+
+        standing_threshold = [0, self.cfg.rel_standing]
+        heading_threshold = [self.cfg.rel_standing, self.cfg.rel_forward_envs + self.cfg.rel_standing]
+        random_heading_threshold = [self.cfg.rel_forward_envs + self.cfg.rel_standing, 1]
+
+        #ensures that at each entry only one of the masks is 1
+        standing_mask = (self.mode >= standing_threshold[0]) & (self.mode < standing_threshold[1])
+        heading_mask = (self.mode >= heading_threshold[0]) & (self.mode < heading_threshold[1])
+        random_mask  = ~standing_mask & ~heading_mask
+
+        #for each index find the mask thats true
+        if (standing_threshold[0] <= self.mode and self.mode < standing_threshold[1]):
+            self.vel_command_b[standing_mask] = 0
+        elif(heading_threshold[0] <= self.mode and self.mode < heading_threshold[1]):
+            # set xy velocity and heading command to point towards target
+            target_vec_w = self.pos_command_w[:, :3] - self.robot.data.root_pos_w[:, :3]
+            
+            target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
+            
+            norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
+            
+            target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
+            
+            self.vel_command_b[:, :2] = target_vec_b * self.velocity
+            
+            target_heading_w = torch.atan2(target_vec_b[:, 1], target_vec_b[:, 0]) 
+            
+            target_heading_b = wrap_to_pi(target_heading_w - self.robot.data.heading_w)
+            
+            self.vel_command_b[:, 2] = torch.clip(
+                    self.cfg.heading_control_stiffness * target_heading_b,
+                    min=self.cfg.ranges.ang_vel_z[0],
+                    max=self.cfg.ranges.ang_vel_z[1],
+                )
+        else: 
+            assert(random_heading_threshold[0] <= self.mode and self.mode <= random_heading_threshold[1])
+            
+            target_vec_w = self.pos_command_w[:, :3] - self.robot.data.root_pos_w[:, :3]
+
+            target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
+
+            norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
+
+            target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
+
+            self.vel_command_b[:, :2] = target_vec_b * self.velocity
+
+            target_heading_b = wrap_to_pi(self.random_heading_w - self.robot.data.heading_w)
+            
+            self.vel_command_b[:, 2] = torch.clip(
+                    self.cfg.heading_control_stiffness * target_heading_b,
+                    min=self.cfg.ranges.ang_vel_z[0],
+                    max=self.cfg.ranges.ang_vel_z[1],
+                )
+
 
     def _set_debug_vis_impl(self, debug_vis: bool):
         # set visibility of markers
