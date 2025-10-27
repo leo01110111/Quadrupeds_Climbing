@@ -28,7 +28,8 @@ if TYPE_CHECKING:
 
 class TrackingVelocityCommand(CommandTerm):
     """Command generator that generates a velocity command that points to a goal location.
-    The command velocity is to move and orient the front towards the goal."""
+    For x% of environments, the command velocity is to move and orient the front towards the goal.
+    100-x% of environments, the command velocity is to move and orient a random heading towards the goal."""
 
     cfg: TrackingVelocityCommandCfg
 
@@ -114,59 +115,60 @@ class TrackingVelocityCommand(CommandTerm):
     def _update_command(self):
         """Re-target the velocity command to the goal."""
 
-        standing_threshold = [0, self.cfg.rel_standing]
-        heading_threshold = [self.cfg.rel_standing, self.cfg.rel_forward_envs + self.cfg.rel_standing]
-        random_heading_threshold = [self.cfg.rel_forward_envs + self.cfg.rel_standing, 1]
+        standing_threshold = [0, self.cfg.rel_standing_envs]
+        heading_threshold = [self.cfg.rel_standing_envs, self.cfg.rel_forward_envs + self.cfg.rel_standing_envs]
 
         #ensures that at each entry only one of the masks is 1
         standing_mask = (self.mode >= standing_threshold[0]) & (self.mode < standing_threshold[1])
+        standing_mask = standing_mask.squeeze(1)
         heading_mask = (self.mode >= heading_threshold[0]) & (self.mode < heading_threshold[1])
+        heading_mask = heading_mask.squeeze(1)
         random_mask  = ~standing_mask & ~heading_mask
 
         #for each index find the mask thats true
-        if (standing_threshold[0] <= self.mode and self.mode < standing_threshold[1]):
-            self.vel_command_b[standing_mask] = 0
-        elif(heading_threshold[0] <= self.mode and self.mode < heading_threshold[1]):
-            # set xy velocity and heading command to point towards target
-            target_vec_w = self.pos_command_w[:, :3] - self.robot.data.root_pos_w[:, :3]
+        #standing case
+        self.vel_command_b[standing_mask, :3] = torch.zeros_like(self.vel_command_b[standing_mask, :3])
+        
+        #heading case
+        # set xy velocity and heading command to point towards target
+        target_vec_w = self.pos_command_w[heading_mask, :3] - self.robot.data.root_pos_w[heading_mask, :3]
             
-            target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
-            
-            norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
-            
-            target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
-            
-            self.vel_command_b[:, :2] = target_vec_b * self.velocity
-            
-            target_heading_w = torch.atan2(target_vec_b[:, 1], target_vec_b[:, 0]) 
-            
-            target_heading_b = wrap_to_pi(target_heading_w - self.robot.data.heading_w)
-            
-            self.vel_command_b[:, 2] = torch.clip(
-                    self.cfg.heading_control_stiffness * target_heading_b,
-                    min=self.cfg.ranges.ang_vel_z[0],
-                    max=self.cfg.ranges.ang_vel_z[1],
-                )
-        else: 
-            assert(random_heading_threshold[0] <= self.mode and self.mode <= random_heading_threshold[1])
-            
-            target_vec_w = self.pos_command_w[:, :3] - self.robot.data.root_pos_w[:, :3]
+        target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w[heading_mask, :4]), target_vec_w)
+        #writes the coordinates in the body frame
+        norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
+        
+        target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
+        
+        self.vel_command_b[heading_mask, :2] = target_vec_b * self.velocity[heading_mask]
+        
+        target_heading_w = torch.atan2(target_vec_b[:, 1], target_vec_b[:, 0]) 
+        
+        target_heading_error_b = wrap_to_pi(target_heading_w - self.robot.data.heading_w[heading_mask])
+        
+        self.vel_command_b[heading_mask, 2] = torch.clip(
+            self.cfg.heading_control_stiffness * target_heading_error_b,
+            min=self.cfg.ranges.ang_vel_z[0],
+            max=self.cfg.ranges.ang_vel_z[1],
+        )
+        
+        #random case
+        target_vec_w = self.pos_command_w[random_mask, :3] - self.robot.data.root_pos_w[random_mask, :3]
 
-            target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec_w)
+        target_vec_b = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w[random_mask, :4]), target_vec_w)
 
-            norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
+        norm = torch.norm(target_vec_b[:,:2], dim=1).unsqueeze(1)
 
-            target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
+        target_vec_b = target_vec_b[:, :2] / torch.clamp(norm, min=0.001) #reshaped target_vec_b to (num_envs, 2)
 
-            self.vel_command_b[:, :2] = target_vec_b * self.velocity
+        self.vel_command_b[random_mask, :2] = target_vec_b * self.velocity[random_mask]
 
-            target_heading_b = wrap_to_pi(self.random_heading_w - self.robot.data.heading_w)
-            
-            self.vel_command_b[:, 2] = torch.clip(
-                    self.cfg.heading_control_stiffness * target_heading_b,
-                    min=self.cfg.ranges.ang_vel_z[0],
-                    max=self.cfg.ranges.ang_vel_z[1],
-                )
+        heading_error_b = wrap_to_pi(self.random_heading_w[random_mask].squeeze(1) - self.robot.data.heading_w[random_mask])
+
+        self.vel_command_b[random_mask, 2] = torch.clip(
+            self.cfg.heading_control_stiffness * heading_error_b,
+            min=self.cfg.ranges.ang_vel_z[0],
+            max=self.cfg.ranges.ang_vel_z[1],
+        )
 
 
     def _set_debug_vis_impl(self, debug_vis: bool):
