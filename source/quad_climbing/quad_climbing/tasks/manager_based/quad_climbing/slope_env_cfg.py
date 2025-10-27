@@ -85,7 +85,7 @@ class CommandsCfg:
         debug_vis=True,
         heading_control_stiffness=2.0,
         rel_standing_envs = 0,
-        rel_forward_envs = 1,
+        rel_forward_envs = 0,
         #by definition, rel_random_heading_envs = 0.4
         ranges=mdp.TrackingVelocityCommandCfg.Ranges( 
             pos_x=(0, 0), pos_y=(0, 0), velocity=(1.0,1.0), ang_vel_z=(-2.0,2.0)
