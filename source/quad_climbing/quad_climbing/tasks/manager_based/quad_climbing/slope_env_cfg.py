@@ -81,14 +81,14 @@ class CommandsCfg:
 
     base_velocity = mdp.TrackingVelocityCommandCfg( #the config for giving commands in the mdp
         asset_name="robot", #the asset we're commanding
-        resampling_time_range=(10.0, 10.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
+        resampling_time_range=(10.0, 11.0), #min and max time between resampling a new command. Here we make it so that it basically doesnt happen
         debug_vis=True,
         heading_control_stiffness=2.0,
-        rel_standing_envs = 0,
-        rel_forward_envs = 0,
-        #by definition, rel_random_heading_envs = 0.4
+        rel_standing_envs = 0.1,
+        rel_forward_envs = 0.45,
+        #by definition, rel_random_heading_envs = 0.45
         ranges=mdp.TrackingVelocityCommandCfg.Ranges( 
-            pos_x=(0, 0), pos_y=(0, 0), velocity=(1.0,1.0), ang_vel_z=(-2.0,2.0)
+            pos_x=(0, 0), pos_y=(0, 0), velocity=(0.25,1.0), ang_vel_z=(-2.0,2.0)
         ),
     )
 
@@ -97,7 +97,7 @@ class CommandsCfg:
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    joint_pos = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True) #
+    joint_pos = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=0.25, use_default_offset=True) #
 
 
 @configclass
